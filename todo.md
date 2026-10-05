@@ -4,8 +4,8 @@
 
 - [x] Documentation Docusaurus (`documentation/`), publiée comme artefact de déploiement GitHub Pages, sans site buildé commité
 - [x] README complet
-- [x] Logo SVG (une faux dont la lame est un croissant de lune) : `documentation/static/img/logo.svg`, repris comme icône de l'extension
-- [ ] Logo « final » et illustration (Otoroshi, la mort avec sa faux, le logo Clever Cloud) : à générer avec un modèle de diffusion
+- [x] Logos et illustration (sources dans `resources/`) : logo « groupe de metal » en tête du README et de l'accueil de la doc, emblème recadré pour le favicon, la barre de la doc et l'icône de l'extension, illustration en bannière
+- [ ] Incruster le vrai logo Clever Cloud dans l'illustration (après vérification de leur charte)
 - [x] Script Playwright de screenshots « en pleine action » contre un faux Clever Cloud : `documentation/screenshots`
 - [x] Lancer le script sur l'Otoroshi local (démarré avec `CLEVER_CLOUD_API_URL=http://127.0.0.1:9990 CLEVER_CLOUD_API_TOKEN=demo`) et commiter les captures
 

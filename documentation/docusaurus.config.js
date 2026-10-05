@@ -7,7 +7,7 @@ const repo = 'https://github.com/cloud-apim/otoroshi-clevercloud-reaper';
 const config = {
   title: 'Clever Cloud Reaper',
   tagline: 'Put the Clever Cloud apps nobody uses to sleep, wake them up on the next request',
-  favicon: 'img/favicon.svg',
+  favicon: 'img/favicon.png',
 
   url: 'https://cloud-apim.github.io',
   baseUrl: '/otoroshi-clevercloud-reaper/',
@@ -67,7 +67,7 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
-      image: 'img/logo.svg',
+      image: 'img/social-card.jpg',
       colorMode: {
         defaultMode: 'dark',
         disableSwitch: false,
@@ -80,7 +80,7 @@ const config = {
         title: 'Clever Cloud Reaper',
         logo: {
           alt: 'Clever Cloud Reaper',
-          src: 'img/logo.svg',
+          src: 'img/logo.png',
         },
         items: [
           {

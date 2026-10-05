@@ -85,36 +85,36 @@ CLEVER_CLOUD_API_TOKEN='...' java -cp "./reaper.jar:./otoroshi.jar" \\
   play.core.server.ProdServerStart`;
 
 function Hero() {
+  const illustration = useBaseUrl('/img/illustration.webp');
   return (
-    <header className={styles.hero}>
+    <header
+      className={styles.hero}
+      style={{
+        backgroundImage: `linear-gradient(90deg, rgba(8, 8, 10, 0.94) 0%, rgba(8, 8, 10, 0.82) 38%, rgba(8, 8, 10, 0.25) 75%, rgba(8, 8, 10, 0.1) 100%), url(${illustration})`,
+      }}>
       <div className="container">
         <div className={styles.heroLayout}>
-          <div>
-            <div className={styles.heroEyebrow}>Cloud APIM · Otoroshi extension</div>
-            <Heading as="h1" className={styles.heroTitle}>
-              Put the Clever Cloud apps <span className={styles.heroAccent}>nobody uses</span> to
-              sleep
-            </Heading>
-            <p className={styles.heroSubtitle}>
-              Staging, demo and preview apps spend their nights and weekends waiting for someone.
-              The Clever Cloud Reaper stops them when they get no traffic, and wakes them up on the
-              next request, right from the Otoroshi routes that serve them.
-            </p>
-            <div className={styles.heroButtons}>
-              <Link className={styles.buttonPrimary} to="/docs/overview">
-                Read the docs
-              </Link>
-              <Link className={styles.buttonGhost} to="/docs/quickstart">
-                Quickstart
-              </Link>
-              <Link
-                className={styles.buttonGhost}
-                href="https://github.com/cloud-apim/otoroshi-clevercloud-reaper">
-                GitHub
-              </Link>
-            </div>
+          <img className={styles.heroLogo} src={useBaseUrl('/img/logo-band.webp')} alt="Clever Cloud Reaper" />
+          <div className={styles.heroEyebrow}>Cloud APIM · Otoroshi extension</div>
+          <Heading as="h1" className={styles.heroTitle}>
+            Put the Clever Cloud apps <span className={styles.heroAccent}>nobody uses</span> to sleep
+          </Heading>
+          <p className={styles.heroSubtitle}>
+            Staging, demo and preview apps spend their nights and weekends waiting for someone. The
+            Clever Cloud Reaper stops them when they get no traffic, and wakes them up on the next
+            request, right from the Otoroshi routes that serve them.
+          </p>
+          <div className={styles.heroButtons}>
+            <Link className={styles.buttonPrimary} to="/docs/overview">
+              Read the docs
+            </Link>
+            <Link className={styles.buttonGhost} to="/docs/quickstart">
+              Quickstart
+            </Link>
+            <Link className={styles.buttonGhost} href="https://github.com/cloud-apim/otoroshi-clevercloud-reaper">
+              GitHub
+            </Link>
           </div>
-          <img className={styles.heroLogo} src={useBaseUrl('/img/logo.svg')} alt="" />
         </div>
       </div>
     </header>

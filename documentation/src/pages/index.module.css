@@ -1,20 +1,26 @@
 .hero {
-  background: var(--reaper-hero-bg);
-  color: #f1f0fa;
-  padding: 4.5rem 0 4rem;
+  /* the illustration, set inline (it needs the base url), darkened on the side of the text */
+  background-color: #08080a;
+  background-size: cover;
+  background-position: 70% center;
+  color: #f1f0f0;
+  padding: 3.5rem 0 4.5rem;
+  min-height: 34rem;
+  display: flex;
+  align-items: center;
   overflow: hidden;
 }
 
 .heroLayout {
-  display: grid;
-  gap: 2.5rem;
-  align-items: center;
+  max-width: 40rem;
 }
 
-@media (min-width: 997px) {
-  .heroLayout {
-    grid-template-columns: minmax(0, 1fr) 220px;
-  }
+.heroLogo {
+  display: block;
+  width: 17rem;
+  max-width: 70%;
+  margin: 0 0 1.4rem -0.6rem;
+  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.7));
 }
 
 .heroEyebrow {
@@ -22,7 +28,7 @@
   font-size: 0.72rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #ffc94a;
+  color: #ff9a56;
   margin-bottom: 1rem;
 }
 
@@ -34,13 +40,14 @@
 }
 
 .heroAccent {
-  color: #ffc94a;
+  color: #ff9a56;
 }
 
 .heroSubtitle {
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.8);
   font-size: 1.08rem;
   line-height: 1.55;
-  color: #cfd0e3;
+  color: #d6d3d1;
   max-width: 46rem;
   margin: 0 0 1.9rem;
 }
@@ -62,32 +69,25 @@
 }
 
 .buttonPrimary {
-  background: #f9b000;
-  color: #12142b;
+  background: #f97316;
+  color: #0b0b0d;
 }
 .buttonPrimary:hover {
-  background: #ffc94a;
-  color: #12142b;
+  background: #ff9a56;
+  color: #0b0b0d;
   text-decoration: none;
 }
 
 .buttonGhost {
-  border-color: rgba(241, 240, 250, 0.4);
-  color: #f1f0fa;
+  border-color: rgba(241, 240, 240, 0.45);
+  color: #f1f0f0;
 }
 .buttonGhost:hover {
-  border-color: #f1f0fa;
-  color: #f1f0fa;
+  border-color: #f1f0f0;
+  color: #f1f0f0;
   text-decoration: none;
 }
 
-.heroLogo {
-  width: 100%;
-  max-width: 200px;
-  justify-self: center;
-  border-radius: 44px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06);
-}
 
 .section {
   padding: 3.5rem 0;
@@ -225,5 +225,5 @@
   width: 100%;
   border: 1px solid var(--reaper-border);
   border-radius: 8px;
-  box-shadow: 0 8px 28px rgba(10, 12, 30, 0.14);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
 }

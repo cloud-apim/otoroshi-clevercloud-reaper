@@ -1,54 +1,51 @@
 /**
  * Global styles. Infima variables are overridden here.
- * The palette is the logo's: a night blue as the primary, the amber of the crescent blade as the
- * accent, and the amber again as the primary of the dark theme, where it reads best.
+ * The palette is the artwork's: black, blackened steel, and the molten orange of its cracks and
+ * lightning, as the primary color.
  */
 
 :root {
-  --ifm-color-primary: #3b3f99;
-  --ifm-color-primary-dark: #35398a;
-  --ifm-color-primary-darker: #323682;
-  --ifm-color-primary-darkest: #292c6b;
-  --ifm-color-primary-light: #4146a8;
-  --ifm-color-primary-lighter: #4449af;
-  --ifm-color-primary-lightest: #5257bd;
+  --ifm-color-primary: #c2410c;
+  --ifm-color-primary-dark: #af3b0b;
+  --ifm-color-primary-darker: #a5380a;
+  --ifm-color-primary-darkest: #882e08;
+  --ifm-color-primary-light: #d5470d;
+  --ifm-color-primary-lighter: #df4a0e;
+  --ifm-color-primary-lightest: #f05b1c;
   --ifm-code-font-size: 92%;
   --ifm-font-family-monospace: 'IBM Plex Mono', SFMono-Regular, Menlo, Consolas, monospace;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.08);
 
-  --reaper-accent: #b97f00;
+  --reaper-accent: #c2410c;
   --reaper-surface: #ffffff;
-  --reaper-surface-alt: #f4f4f8;
-  --reaper-border: #dedfe8;
-  --reaper-muted: #5c5e70;
-  --reaper-hero-bg: radial-gradient(1200px 500px at 85% 10%, #3a3f8a 0%, transparent 60%),
-    linear-gradient(160deg, #0d1026 0%, #151938 55%, #23285e 100%);
+  --reaper-surface-alt: #f4f4f5;
+  --reaper-border: #e4e4e7;
+  --reaper-muted: #5b5b66;
 }
 
 [data-theme='dark'] {
-  --ifm-color-primary: #f5b52a;
-  --ifm-color-primary-dark: #f4ab0e;
-  --ifm-color-primary-darker: #e8a20a;
-  --ifm-color-primary-darkest: #bf8508;
-  --ifm-color-primary-light: #f6bf46;
-  --ifm-color-primary-lighter: #f7c454;
-  --ifm-color-primary-lightest: #f9d27e;
+  --ifm-color-primary: #ff8a3d;
+  --ifm-color-primary-dark: #ff7a24;
+  --ifm-color-primary-darker: #ff7217;
+  --ifm-color-primary-darkest: #ef5a00;
+  --ifm-color-primary-light: #ff9a56;
+  --ifm-color-primary-lighter: #ffa263;
+  --ifm-color-primary-lightest: #ffbb8a;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
-  --ifm-background-color: #11131f;
-  --ifm-navbar-background-color: #151827;
-  --ifm-footer-background-color: #0d0f19;
+  --ifm-background-color: #0b0b0d;
+  --ifm-background-surface-color: #111114;
+  --ifm-navbar-background-color: #111114;
+  --ifm-footer-background-color: #08080a;
 
-  --reaper-accent: #f5b52a;
-  --reaper-surface: #181b2b;
-  --reaper-surface-alt: #1d2033;
-  --reaper-border: #2c3048;
-  --reaper-muted: #a5a8bd;
-  --reaper-hero-bg: radial-gradient(1200px 500px at 85% 10%, #2c3170 0%, transparent 60%),
-    linear-gradient(160deg, #090b1a 0%, #10132b 55%, #1b1f4a 100%);
+  --reaper-accent: #ff8a3d;
+  --reaper-surface: #141417;
+  --reaper-surface-alt: #111114;
+  --reaper-border: #2a2a30;
+  --reaper-muted: #a3a3ad;
 }
 
 .footer--dark {
-  --ifm-footer-background-color: #0d0f19;
+  --ifm-footer-background-color: #08080a;
 }
 
 /* the reference pages carry a lot of short values: keep them tight */
@@ -71,7 +68,7 @@
 .markdown img[src*='/screenshots/'] {
   border: 1px solid var(--reaper-border);
   border-radius: 8px;
-  box-shadow: 0 8px 28px rgba(10, 12, 30, 0.12);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
   margin: 0.4rem 0 1rem;
 }
 

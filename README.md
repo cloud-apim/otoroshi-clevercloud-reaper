@@ -1,5 +1,7 @@
+![The reaper at work: servers going dark one by one, Otoroshi watching from its gate](documentation/static/img/illustration.jpg)
+
 <p align="center">
-  <img src="documentation/static/img/logo.svg" width="120" alt="Clever Cloud Reaper">
+  <img src="documentation/static/img/logo-band.webp" width="320" alt="Clever Cloud Reaper">
 </p>
 
 # Cloud APIM - Clever Cloud Reaper for Otoroshi
