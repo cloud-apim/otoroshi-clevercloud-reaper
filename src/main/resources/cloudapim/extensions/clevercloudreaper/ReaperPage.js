@@ -201,12 +201,18 @@ class CleverCloudReaperConfigEditor extends Component {
           checked: this.state.allow_waiting_page,
           onChange: (e) => this.setState({ allow_waiting_page: e.target.checked }),
         })),
-        h('label', null, 'Other requests while waking up'),
+        h('span', { className: 'reaper-meta reaper-help' },
+          'Browsers (GET or HEAD asking for text/html) get a page that reloads itself once the app answers, whatever the mode below. Turn it off to apply the mode below to browsers too.'),
+        h('label', null, 'Mode for the other requests'),
         h('select', { className: 'form-control', value: this.state.api_behavior, onChange: (e) => this.setState({ api_behavior: e.target.value }) },
           h('option', { value: 'hold' }, 'Held until the app is up'),
           h('option', { value: 'unavailable' }, '503 with a Retry-After header'),
           h('option', { value: 'client_poll' }, 'A small html page that polls the path and reloads once the app answers')
         ),
+        h('span', { className: 'reaper-meta reaper-help' },
+          this.state.allow_waiting_page
+            ? 'Applies to api calls and every request that does not ask for html. Browsers get the waiting page.'
+            : 'Applies to every request, browsers included.'),
         h('label', null, 'Timezone'),
         this.input('timezone', 'text', { placeholder: 'default of the extension (' + (this.props.defaultTimezone || 'Europe/Paris') + ')' }),
         h('label', null, 'Must be up at'),

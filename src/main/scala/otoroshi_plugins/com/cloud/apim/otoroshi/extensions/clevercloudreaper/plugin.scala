@@ -63,13 +63,15 @@ object CleverCloudReaperPluginSchema {
     "allow_waiting_page" -> Json.obj(
       "type"  -> "bool",
       "label" -> "Waiting page for browsers",
-      "props" -> Json.obj("help" -> "Browsers get a page that reloads itself once the app is up")
+      "props" -> Json.obj(
+        "help" -> "Browsers (GET or HEAD asking for text/html) get a page that reloads itself once the app answers, whatever the mode below. Turn it off to apply the mode below to browsers too"
+      )
     ),
     "api_behavior"       -> Json.obj(
       "type"  -> "select",
-      "label" -> "Other requests",
+      "label" -> "Mode for the other requests",
       "props" -> Json.obj(
-        "help"    -> "What the requests that do not get the waiting page get while the app wakes up",
+        "help"    -> "What a request gets while the app wakes up, unless it got the waiting page above: api calls, and browsers too when the waiting page is off",
         "options" -> Json.arr(
           Json.obj("value" -> CleverCloudReaperConfig.Hold, "label"        -> "Held until the app is up"),
           Json.obj("value" -> CleverCloudReaperConfig.Unavailable, "label" -> "503 with a Retry-After header"),
