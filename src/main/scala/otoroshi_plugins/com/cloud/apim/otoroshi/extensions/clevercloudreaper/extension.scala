@@ -197,6 +197,7 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
   override def backofficeAuthRoutes(): Seq[AdminExtensionBackofficeAuthRoute] = Seq(
     AdminExtensionBackofficeAuthRoute("GET", s"$boPath/overview", wantsBody = false, (_, _, user, _) => withUser(user)(_ => handleOverview())),
     AdminExtensionBackofficeAuthRoute("GET", s"$boPath/routes", wantsBody = false, (_, req, user, _) => withUser(user)(u => handleRoutes(req, u))),
+    AdminExtensionBackofficeAuthRoute("GET", s"$boPath/routes/:routeId", wantsBody = false, (ctx, _, user, _) => withUser(user)(u => handleRoute(ctx.named("routeId"), u))),
     AdminExtensionBackofficeAuthRoute("POST", s"$boPath/routes/:routeId/_enable", wantsBody = true, (ctx, _, user, body) => withUser(user)(u => handleEnable(ctx.named("routeId"), body, u))),
     AdminExtensionBackofficeAuthRoute("POST", s"$boPath/routes/:routeId/_disable", wantsBody = false, (ctx, _, user, _) => withUser(user)(u => handleDisable(ctx.named("routeId"), u))),
     AdminExtensionBackofficeAuthRoute("PUT", s"$boPath/routes/:routeId/config", wantsBody = true, (ctx, _, user, body) => withUser(user)(u => handleConfig(ctx.named("routeId"), body, u))),
@@ -226,6 +227,10 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
        |    const dependencies = ctx.dependencies;
        |    const React = dependencies.react;
        |    const Component = React.Component;
+       |    const Table = dependencies.Components.Inputs.Table;
+       |    const Form = dependencies.Components.Inputs.Form;
+       |    const SelectInput = dependencies.Components.Inputs.SelectInput;
+       |    const TextInput = dependencies.Components.Inputs.TextInput;
        |    const BASE = "$boPath";
        |
        |    $pageCode
@@ -253,10 +258,17 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
        |        label: 'Clever Cloud Reaper',
        |        value: 'clevercloudreaper',
        |      }],
-       |      routes: [{
-       |        path: '/extensions/cloud-apim/clevercloud-reaper',
-       |        component: (props) => React.createElement(CleverCloudReaperPage, props, null),
-       |      }],
+       |      // the most specific first: the router takes the first that matches
+       |      routes: [
+       |        {
+       |          path: '/extensions/cloud-apim/clevercloud-reaper/routes/:routeId',
+       |          component: (props) => React.createElement(CleverCloudReaperRoutePage, props, null),
+       |        },
+       |        {
+       |          path: '/extensions/cloud-apim/clevercloud-reaper',
+       |          component: (props) => React.createElement(CleverCloudReaperRoutesPage, props, null),
+       |        },
+       |      ],
        |    };
        |  });
        |})();
@@ -391,19 +403,49 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
       .vfuture
   }
 
+  /** One route with what the reaper knows of it, and the other routes that manage the same app. */
+  private def handleRoute(routeId: Option[String], user: BackOfficeUser): Future[Result] =
+    routeId.flatMap(id => env.proxyState.rawRoute(id)) match {
+      case None                                => notFound(s"route ${routeId.getOrElse("")} not found")
+      case Some(route) if !canRead(user, route) => forbidden
+      case Some(route)                         =>
+        val row      = routeRow(route) - "search"
+        val appId    = row.select("reaper").select("app_id").asOpt[String]
+        val siblings = appId.toSeq.flatMap { id =>
+          engine.managedApps().get(id).toSeq.flatMap(_.routes.map(_._1)).filter(_.id != route.id).distinctBy(_.id)
+        }
+        Results.Ok(row ++ Json.obj("siblings" -> siblings.map(r => Json.obj("id" -> r.id, "name" -> r.name)))).vfuture
+    }
+
   /**
-   * The routes of this node, from memory, with what the reaper knows of them. Filters:
-   * `search` (name, id, domains, targets), `reaper` (all, enabled, disabled), `status`, `page`, `page_size`.
+   * The routes of this node, from memory, with what the reaper knows of them, the way the otoroshi
+   * tables ask for them:
+   *  - `filter.<column>=<text>`: the column contains the text, case insensitive, for any column of a row;
+   *  - `sort=<column>&desc=true|false`;
+   *  - `page` (from 1) and `page_size`, or `all=true` for every matching route at once.
+   * `search`, `reaper` (all, enabled, disabled) and `status` filter as well.
    */
   private def handleRoutes(req: RequestHeader, user: BackOfficeUser): Future[Result] = {
     val search   = req.getQueryString("search").map(_.trim.toLowerCase).filter(_.nonEmpty)
     val reaper   = req.getQueryString("reaper").map(_.trim.toLowerCase).getOrElse("all")
     val status   = req.getQueryString("status").flatMap(ReaperStatus.parse)
+    val filters  = req.queryString.toSeq.collect {
+      case (key, values) if key.startsWith("filter.") && values.exists(_.trim.nonEmpty) =>
+        (key.stripPrefix("filter."), values.head.trim.toLowerCase)
+    }
+    val sort     = req.getQueryString("sort").map(_.trim).filter(_.nonEmpty).getOrElse("name")
+    val desc     = req.getQueryString("desc").contains("true")
     val page     = req.getQueryString("page").flatMap(_.toIntOption).filter(_ > 0).getOrElse(1)
     val pageSize = req.getQueryString("page_size").flatMap(_.toIntOption).filter(_ > 0).map(Math.min(_, 500)).getOrElse(15)
     // refreshed in the background: the vhosts make the guesses better, the list does not wait for them
     if (api.configured && System.currentTimeMillis() - cleverAppsCache.get()._1 > 60000L) cleverApps()
-    val rows     = env.proxyState
+    def text(row: JsObject, column: String): String = row.select(column).asOpt[JsValue] match {
+      case Some(JsString(v))  => v.toLowerCase
+      case Some(JsNumber(v))  => v.toString
+      case Some(JsBoolean(v)) => v.toString
+      case _                  => ""
+    }
+    val filtered = env.proxyState
       .allRawRoutes()
       .filter(r => canRead(user, r))
       .map(routeRow)
@@ -417,37 +459,69 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
       }
       .filter(row => status.forall(s => row.select("state").select("status").asOpt[ReaperStatus].contains(s)))
       .filter(row => search.forall(s => row.select("search").asOpt[String].exists(_.contains(s))))
-      .sortBy(_.select("name").asOpt[String].getOrElse("").toLowerCase)
-    val total    = rows.size
-    val items    = rows.slice((page - 1) * pageSize, page * pageSize).map(_.asObject - "search")
+      .filter(row => filters.forall { case (column, value) => text(row, column).contains(value) })
+    val sorted   = {
+      val numeric = filtered.forall(row => row.select(sort).asOpt[JsValue].forall(_.isInstanceOf[JsNumber]))
+      val asc     =
+        if (numeric) filtered.sortBy(row => row.select(sort).asOpt[Long].getOrElse(0L))
+        else filtered.sortBy(row => text(row, sort))
+      if (desc) asc.reverse else asc
+    }
+    val total    = sorted.size
+    val all      = req.getQueryString("all").contains("true")
+    val items    = (if (all) sorted else sorted.slice((page - 1) * pageSize, page * pageSize)).map(_ - "search")
+    val pages    = if (all) 1 else Math.max(1, Math.ceil(total.toDouble / pageSize).toInt)
     Results
-      .Ok(Json.obj("total" -> total, "page" -> page, "page_size" -> pageSize, "items" -> JsArray(items)))
+      .Ok(Json.obj("total" -> total, "page" -> page, "page_size" -> pageSize, "pages" -> pages, "items" -> JsArray(items)))
       .withHeaders("X-Count" -> total.toString)
       .vfuture
   }
+
+  private val statusLabels: Map[ReaperStatus, String] = Map(
+    ReaperStatus.Up                 -> "Up",
+    ReaperStatus.Down               -> "Asleep",
+    ReaperStatus.WaitingForUp       -> "Waking up",
+    ReaperStatus.WaitingForShutdown -> "Going to sleep",
+    ReaperStatus.WaitingForInit     -> "Initializing",
+    ReaperStatus.Error              -> "Error"
+  )
 
   private def routeRow(route: NgRoute): JsObject = {
     val instance = route.plugins.slots.find(_.plugin == pluginId)
     val config   = instance.flatMap(i => CleverCloudReaperConfig.format.reads(i.config.raw).asOpt)
     val appId    = config.flatMap(_.appId).orElse(detectApp(route))
     val detected = config.flatMap(_.appId).isEmpty && appId.isDefined
+    val enabled  = instance.exists(_.enabled)
     val domains  = route.frontend.domains.map(_.raw)
     val targets  = route.backend.targets.map(t => s"${if (t.tls) "https" else "http"}://${t.hostname}:${t.port}")
+    val state    = appId.flatMap(memory.state)
+    val access   = appId.flatMap(memory.lastAccess)
+    def first(values: Seq[String]): String =
+      values.headOption.map(_ + (if (values.size > 1) s" +${values.size - 1}" else "")).getOrElse("")
     Json.obj(
-      "id"      -> route.id,
-      "name"    -> route.name,
-      "enabled" -> route.enabled,
-      "domains" -> domains,
-      "targets" -> targets,
-      "reaper"  -> Json.obj(
+      "id"             -> route.id,
+      "name"           -> route.name,
+      "enabled"        -> route.enabled,
+      "domains"        -> domains,
+      "targets"        -> targets,
+      "reaper"         -> Json.obj(
         "installed" -> instance.isDefined,
-        "enabled"   -> instance.exists(_.enabled),
+        "enabled"   -> enabled,
         "config"    -> config.map(_.json).getOrElse(JsNull).asValue,
         "app_id"    -> appId,
         "detected"  -> detected
       ),
-      "state"   -> appId.map(stateJson).getOrElse(JsNull).asValue,
-      "search"  -> (Seq(route.name, route.id) ++ domains ++ targets ++ appId.toSeq ++ appId.flatMap(memory.state).flatMap(_.name).toSeq)
+      "state"          -> appId.map(stateJson).getOrElse(JsNull).asValue,
+      // what the columns of the otoroshi table show, filter and sort on
+      "frontend"       -> first(domains),
+      "backend"        -> first(targets.map(_.replaceFirst("^https?://", ""))),
+      "app"            -> appId.map(id => state.flatMap(_.name).getOrElse(id)).getOrElse("").asInstanceOf[String],
+      "reaper_status"  -> (if (enabled) "enabled" else "disabled"),
+      "status_label"   -> (if (!enabled) "" else state.map(s => statusLabels(s.status)).getOrElse("Pending")),
+      "last_access_at" -> (if (enabled) access.getOrElse(0L) else 0L),
+      "reap_at"        -> (if (!enabled) 0L
+                           else state.filter(_.status == ReaperStatus.Up).map(s => ReaperRules.lastActivity(s, access) + s.gracePeriod).getOrElse(0L)),
+      "search"         -> (Seq(route.name, route.id) ++ domains ++ targets ++ appId.toSeq ++ state.flatMap(_.name).toSeq)
         .mkString(" ")
         .toLowerCase
     )
