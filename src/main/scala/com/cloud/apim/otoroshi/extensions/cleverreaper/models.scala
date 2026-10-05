@@ -129,7 +129,7 @@ final case class CleverReaperConfig(
 
   def json: JsValue = CleverReaperConfig.format.writes(this)
 
-  def holdsRequests: Boolean = apiBehavior != CleverReaperConfig.Unavailable
+  def holdsRequests: Boolean = apiBehavior == CleverReaperConfig.Hold
 
   def zone(default: ZoneId): ZoneId = timezone.flatMap(z => Try(ZoneId.of(z)).toOption).getOrElse(default)
 
@@ -144,8 +144,12 @@ final case class CleverReaperConfig(
 
 object CleverReaperConfig {
 
+  // the request waits, held open, until the app is up
   val Hold        = "hold"
+  // a 503 with a Retry-After header, at once
   val Unavailable = "unavailable"
+  // a small html page that polls the requested path and reloads once the app answers it
+  val ClientPoll  = "client_poll"
 
   val default: CleverReaperConfig = CleverReaperConfig()
 
@@ -175,6 +179,7 @@ object CleverReaperConfig {
         allowWaitingPage = json.select("allow_waiting_page").asOpt[Boolean].getOrElse(default.allowWaitingPage),
         apiBehavior = json.select("api_behavior").asOpt[String].map(_.trim.toLowerCase) match {
           case Some(Unavailable) => Unavailable
+          case Some(ClientPoll)  => ClientPoll
           case _                 => Hold
         },
         readyDelay = positive(json, "ready_delay", default.readyDelay),

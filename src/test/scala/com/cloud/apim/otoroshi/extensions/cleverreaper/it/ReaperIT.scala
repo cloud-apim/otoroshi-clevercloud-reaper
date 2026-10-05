@@ -113,7 +113,9 @@ class ReaperIT extends munit.FunSuite {
     val page = gateway.call(route, "/", Seq("Accept" -> "text/html,application/xhtml+xml"))
     assertEquals(page.status, 503)
     assert(page.body.contains("reaped is waking up"), page.body)
-    assert(page.body.contains("Clever-Reaper"), "the polling script is missing")
+    assert(page.body.contains("'Clever-Reaper': 'poll'"), "the polling script is missing")
+    // the state when the request came in: the wake up it asked for runs on its own
+    assert(page.header("Clever-Reaper-Status").exists(Set("Down", "WaitingForUp").contains), page.header("Clever-Reaper-Status").toString)
     eventually("the status poll to say up") {
       val poll = gateway.call(route, "/", Seq("Clever-Reaper" -> "status"))
       (poll.json \ "status").asOpt[String].contains("Up")
@@ -134,5 +136,37 @@ class ReaperIT extends munit.FunSuite {
     assert(items.exists(t => (t \ "cause").asOpt[String].exists(_.contains("put to sleep by"))), history.body)
     assert(items.exists(t => (t \ "to").asOpt[String].contains("WaitingForUp")))
     assert(items.exists(t => (t \ "cause").asOpt[String].exists(_.startsWith("no traffic for"))))
+  }
+
+  test("in client_poll mode any request gets the polling page, whose poll goes through once the app answers") {
+    val polling = gateway.createRoute(
+      "polled",
+      clever.backendPort,
+      Seq(
+        NgPluginInstance(
+          plugin = s"cp:${classOf[CleverReaper].getName}",
+          config = NgPluginInstanceConfig(
+            Json.obj("app_id" -> appId, "grace_period" -> 3, "fail_timeout" -> 30, "ready_delay" -> 0, "api_behavior" -> "client_poll")
+          )
+        )
+      )
+    )
+    eventually("the app to sleep again")(status().contains("Down"))
+    // not a browser, and still the page: that is the mode
+    val page = gateway.call(polling, "/api/things", Seq("Accept" -> "application/json"))
+    assertEquals(page.status, 503)
+    assert(page.header("Content-Type").exists(_.startsWith("text/html")), page.header("Content-Type").toString)
+    assert(page.body.contains("polled is waking up"), page.body)
+    assert(page.body.contains("'Clever-Reaper': 'poll'"), "the polling script is missing")
+    // while the app wakes up, the poll is answered by the reaper, and says so
+    val asleep = gateway.head(polling, "/api/things", Seq("Clever-Reaper" -> "poll"))
+    assertEquals(asleep.status, 503)
+    assert(asleep.header("Clever-Reaper-Status").isDefined)
+    // once the app is up, the poll reaches it: that is when the page reloads
+    eventually("the poll to reach the app") {
+      val poll = gateway.head(polling, "/api/things", Seq("Clever-Reaper" -> "poll"))
+      poll.header("Clever-Reaper-Status").isEmpty && poll.status == 200
+    }
+    assertEquals(status(), Some("Up"))
   }
 }

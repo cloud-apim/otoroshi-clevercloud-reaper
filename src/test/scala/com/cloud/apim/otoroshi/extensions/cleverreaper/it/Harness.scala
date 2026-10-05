@@ -233,6 +233,15 @@ class Gateway(apiUrl: String) {
         .get()
     )
 
+  def head(route: NgRoute, path: String = "/", headers: Seq[(String, String)] = Seq.empty): WSResponse =
+    await(
+      ws.url(s"http://127.0.0.1:$port$path")
+        .withHttpHeaders(("Host" -> route.frontend.domains.head.domain) +: headers*)
+        .withRequestTimeout(30.seconds)
+        .withMethod("HEAD")
+        .execute()
+    )
+
   def callAsync(route: NgRoute, path: String = "/", headers: Seq[(String, String)] = Seq.empty): Future[WSResponse] =
     ws.url(s"http://127.0.0.1:$port$path")
       .withHttpHeaders(("Host" -> route.frontend.domains.head.domain) +: headers*)

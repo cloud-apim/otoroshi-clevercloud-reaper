@@ -204,7 +204,8 @@ class CleverReaperConfigEditor extends Component {
         h('label', null, 'Other requests while waking up'),
         h('select', { className: 'form-control', value: this.state.api_behavior, onChange: (e) => this.setState({ api_behavior: e.target.value }) },
           h('option', { value: 'hold' }, 'Held until the app is up'),
-          h('option', { value: 'unavailable' }, '503 with a Retry-After header')
+          h('option', { value: 'unavailable' }, '503 with a Retry-After header'),
+          h('option', { value: 'client_poll' }, 'A small html page that polls the path and reloads once the app answers')
         ),
         h('label', null, 'Timezone'),
         this.input('timezone', 'text', { placeholder: 'default of the extension (' + (this.props.defaultTimezone || 'Europe/Paris') + ')' }),

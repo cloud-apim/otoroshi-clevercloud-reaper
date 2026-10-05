@@ -69,10 +69,11 @@ object CleverReaperPluginSchema {
       "type"  -> "select",
       "label" -> "Other requests",
       "props" -> Json.obj(
-        "help"    -> "What api calls get while the app wakes up",
+        "help"    -> "What the requests that do not get the waiting page get while the app wakes up",
         "options" -> Json.arr(
           Json.obj("value" -> CleverReaperConfig.Hold, "label"        -> "Held until the app is up"),
-          Json.obj("value" -> CleverReaperConfig.Unavailable, "label" -> "503 with a Retry-After header")
+          Json.obj("value" -> CleverReaperConfig.Unavailable, "label" -> "503 with a Retry-After header"),
+          Json.obj("value" -> CleverReaperConfig.ClientPoll, "label"  -> "A small html page that polls the path and reloads once the app answers")
         )
       )
     ),
@@ -175,47 +176,76 @@ class CleverReaper extends NgAccessValidator {
     val request = ctx.request
     val state   = ext.memory.state(appId)
     val status  = state.map(_.status)
-    if (request.headers.get(WaitingPage.StatusHeader).exists(_.equalsIgnoreCase("status"))) {
-      // the polling of the waiting page: not traffic, it must not keep the app awake once it is up
-      NgAccess
-        .NgDenied(
-          Results.Ok(WaitingPage.statusJson(status, config.readyDelay)).withHeaders("Cache-Control" -> "no-store")
-        )
-        .vfuture
-    } else {
-      val monitoring = config.isMonitoring(request)
-      status match {
-        case Some(s) if s.asleep && monitoring =>
-          NgAccess.NgDenied(Results.Ok(Json.obj("monitoring" -> true, "status" -> s)).withHeaders("Cache-Control" -> "no-store")).vfuture
-        case Some(s) if s.asleep               =>
-          ext.tracker.touch(appId)
-          ext.requestWake(appId)
-          if (config.allowWaitingPage && wantsHtml(request)) {
-            val html = WaitingPage.render(ext.waitingPageTemplate(config), ctx.route.name, appId, state.flatMap(_.name), status)
-            NgAccess
-              .NgDenied(
-                Results
-                  .ServiceUnavailable(html)
-                  .as("text/html; charset=utf-8")
-                  .withHeaders("Retry-After" -> "30", "Cache-Control" -> "no-store")
-              )
-              .vfuture
-          } else if (!config.holdsRequests) {
-            NgAccess
-              .NgDenied(
-                Results
-                  .ServiceUnavailable(Json.obj("error" -> "the application is waking up, retry later", "status" -> s))
-                  .withHeaders("Retry-After" -> "30", "Cache-Control" -> "no-store")
-              )
-              .vfuture
-          } else {
-            hold(ext, appId, config, ctx)
-          }
-        case _                                 =>
-          // up, unknown, or in error: in error the reaper leaves the app alone, it may very well be running
-          if (!monitoring) ext.tracker.touch(appId)
-          NgAccess.NgAllowed.vfuture
-      }
+    val marker  = WaitingPage.MarkerHeader -> WaitingPage.publicStatus(status)
+    val asked   = request.headers.get(WaitingPage.Header).map(_.trim.toLowerCase)
+    asked match {
+      // the status, as json, whatever the state of the app: not traffic
+      case Some(WaitingPage.StatusValue) =>
+        NgAccess
+          .NgDenied(
+            Results.Ok(WaitingPage.statusJson(status, config.readyDelay)).withHeaders(marker, "Cache-Control" -> "no-store")
+          )
+          .vfuture
+      // a waiting page checking on the app: answered here while the app cannot, let through once it can
+      case Some(WaitingPage.PollValue) if status.exists(s => s.asleep || s == ReaperStatus.Error) =>
+        if (status.exists(_.asleep)) ext.requestWake(appId)
+        NgAccess
+          .NgDenied(
+            Results
+              .ServiceUnavailable(WaitingPage.statusJson(status, config.readyDelay))
+              .withHeaders(marker, "Retry-After" -> "30", "Cache-Control" -> "no-store")
+          )
+          .vfuture
+      case Some(WaitingPage.PollValue)   => NgAccess.NgAllowed.vfuture
+      case _                             => handleRequest(ext, appId, config, ctx, state, status)
+    }
+  }
+
+  private def handleRequest(
+      ext: CleverReaperExtension,
+      appId: String,
+      config: CleverReaperConfig,
+      ctx: NgAccessContext,
+      state: Option[AppState],
+      status: Option[ReaperStatus]
+  )(using env: Env, ec: ExecutionContext): Future[NgAccess] = {
+    val request    = ctx.request
+    val marker     = WaitingPage.MarkerHeader -> WaitingPage.publicStatus(status)
+    val monitoring = config.isMonitoring(request)
+    status match {
+      case Some(s) if s.asleep && monitoring =>
+        NgAccess
+          .NgDenied(Results.Ok(Json.obj("monitoring" -> true, "status" -> s)).withHeaders(marker, "Cache-Control" -> "no-store"))
+          .vfuture
+      case Some(s) if s.asleep               =>
+        ext.tracker.touch(appId)
+        ext.requestWake(appId)
+        val page = (config.allowWaitingPage && wantsHtml(request)) || config.apiBehavior == CleverReaperConfig.ClientPoll
+        if (page) {
+          val html = WaitingPage.render(ext.waitingPageTemplate(config), ctx.route.name, appId, state.flatMap(_.name), status)
+          NgAccess
+            .NgDenied(
+              Results
+                .ServiceUnavailable(html)
+                .as("text/html; charset=utf-8")
+                .withHeaders(marker, "Retry-After" -> "30", "Cache-Control" -> "no-store")
+            )
+            .vfuture
+        } else if (config.apiBehavior == CleverReaperConfig.Unavailable) {
+          NgAccess
+            .NgDenied(
+              Results
+                .ServiceUnavailable(Json.obj("error" -> "the application is waking up, retry later", "status" -> s))
+                .withHeaders(marker, "Retry-After" -> "30", "Cache-Control" -> "no-store")
+            )
+            .vfuture
+        } else {
+          hold(ext, appId, config, ctx)
+        }
+      case _                                 =>
+        // up, unknown, or in error: in error the reaper leaves the app alone, it may very well be running
+        if (!monitoring) ext.tracker.touch(appId)
+        NgAccess.NgAllowed.vfuture
     }
   }
 

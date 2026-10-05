@@ -91,6 +91,9 @@ class ModelsSuite extends munit.FunSuite {
     )
     assertEquals(CleverReaperConfig.format.reads(custom.json).get, custom)
     assert(!custom.holdsRequests)
+    val polling = CleverReaperConfig.format.reads(Json.obj("api_behavior" -> "client_poll")).get
+    assertEquals(polling.apiBehavior, CleverReaperConfig.ClientPoll)
+    assert(!polling.holdsRequests)
     assertEquals(CleverReaperConfig.format.reads(Json.obj("grace_period" -> -5, "api_behavior" -> "what")).get.gracePeriod, 3600L)
   }
 
@@ -120,6 +123,10 @@ class ModelsSuite extends munit.FunSuite {
     assert(html.contains("&lt;script&gt;x&lt;/script&gt;"))
     assert(html.indexOf("fetch(window.location.href") < html.indexOf("</body>"))
     assert(WaitingPage.render("no body here", "r", "app_1", None, None).contains("Clever-Reaper"))
+    // the page polls its own path, and tells the reaper's answers from the app's by their marker
+    assert(html.contains("method: 'HEAD'"))
+    assert(html.contains("'Clever-Reaper': 'poll'"))
+    assert(html.contains("r.headers.get('Clever-Reaper-Status')"))
     assertEquals(WaitingPage.publicStatus(Some(ReaperStatus.WaitingForUp)), "WaitingForUp")
     assertEquals(WaitingPage.publicStatus(Some(ReaperStatus.WaitingForInit)), "Up")
     assertEquals(WaitingPage.publicStatus(None), "Up")
