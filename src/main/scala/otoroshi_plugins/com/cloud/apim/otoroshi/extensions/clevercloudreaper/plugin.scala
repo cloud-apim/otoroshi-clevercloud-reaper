@@ -74,8 +74,7 @@ object CleverCloudReaperPluginSchema {
         "help"    -> "What a request gets while the app wakes up, unless it got the waiting page above: api calls, and browsers too when the waiting page is off",
         "options" -> Json.arr(
           Json.obj("value" -> CleverCloudReaperConfig.Hold, "label"        -> "Held until the app is up"),
-          Json.obj("value" -> CleverCloudReaperConfig.Unavailable, "label" -> "503 with a Retry-After header"),
-          Json.obj("value" -> CleverCloudReaperConfig.ClientPoll, "label"  -> "A small html page that polls the path and reloads once the app answers")
+          Json.obj("value" -> CleverCloudReaperConfig.Unavailable, "label" -> "503 with a Retry-After header")
         )
       )
     ),
@@ -222,8 +221,7 @@ class CleverCloudReaper extends NgAccessValidator {
       case Some(s) if s.asleep               =>
         ext.tracker.touch(appId)
         ext.requestWake(appId)
-        val page = (config.allowWaitingPage && wantsHtml(request)) || config.apiBehavior == CleverCloudReaperConfig.ClientPoll
-        if (page) {
+        if (config.allowWaitingPage && wantsHtml(request)) {
           val html = WaitingPage.render(ext.waitingPageTemplate(config), ctx.route.name, appId, state.flatMap(_.name), status)
           NgAccess
             .NgDenied(

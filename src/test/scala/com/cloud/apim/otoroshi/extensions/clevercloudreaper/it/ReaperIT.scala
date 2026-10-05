@@ -2,7 +2,7 @@ package com.cloud.apim.otoroshi.extensions.clevercloudreaper.it
 
 import org.apache.pekko.actor.ActorSystem
 import otoroshi.next.models.{NgPluginInstance, NgPluginInstanceConfig}
-import otoroshi_plugins.com.cloud.apim.otoroshi.extensions.clevercloudreaper.CleverCloudReaper
+import otoroshi_plugins.com.cloud.apim.otoroshi.extensions.clevercloudreaper.{CleverCloudReaper, CleverCloudReaperExtension}
 import play.api.libs.json.{JsArray, JsObject, Json}
 import play.api.libs.ws.DefaultBodyWritables.writeableOf_String
 
@@ -138,35 +138,58 @@ class ReaperIT extends munit.FunSuite {
     assert(items.exists(t => (t \ "cause").asOpt[String].exists(_.startsWith("no traffic for"))))
   }
 
-  test("in client_poll mode any request gets the polling page, whose poll goes through once the app answers") {
-    val polling = gateway.createRoute(
-      "polled",
+  test("in unavailable mode an api call gets a 503 at once, a browser the page, whose poll goes through once the app answers") {
+    val unavailable = gateway.createRoute(
+      "unavailable",
       clever.backendPort,
       Seq(
         NgPluginInstance(
           plugin = s"cp:${classOf[CleverCloudReaper].getName}",
           config = NgPluginInstanceConfig(
-            Json.obj("app_id" -> appId, "grace_period" -> 3, "fail_timeout" -> 30, "ready_delay" -> 0, "api_behavior" -> "client_poll")
+            Json.obj("app_id" -> appId, "grace_period" -> 3, "fail_timeout" -> 30, "ready_delay" -> 0, "api_behavior" -> "unavailable")
           )
         )
       )
     )
     eventually("the app to sleep again")(status().contains("Down"))
-    // not a browser, and still the page: that is the mode
-    val page = gateway.call(polling, "/api/things", Seq("Accept" -> "application/json"))
+    // an api call is refused at once, and told when to come back
+    val started = System.currentTimeMillis()
+    val refused = gateway.call(unavailable, "/api/things", Seq("Accept" -> "application/json"))
+    assertEquals(refused.status, 503, refused.body)
+    assert(System.currentTimeMillis() - started < 2000L, "the api call was held")
+    assert(refused.header("Content-Type").exists(_.startsWith("application/json")), refused.header("Content-Type").toString)
+    assertEquals(refused.header("Retry-After"), Some("30"))
+    assert(refused.header("CleverCloud-Reaper-Status").isDefined)
+    // a browser still gets the waiting page: it is on by default
+    val page = gateway.call(unavailable, "/", Seq("Accept" -> "text/html"))
     assertEquals(page.status, 503)
-    assert(page.header("Content-Type").exists(_.startsWith("text/html")), page.header("Content-Type").toString)
-    assert(page.body.contains("polled is waking up"), page.body)
-    assert(page.body.contains("'CleverCloud-Reaper': 'poll'"), "the polling script is missing")
-    // while the app wakes up, the poll is answered by the reaper, and says so
-    val asleep = gateway.head(polling, "/api/things", Seq("CleverCloud-Reaper" -> "poll"))
+    assert(page.body.contains("unavailable is waking up"), page.body)
+    // while the app wakes up, the poll of the page is answered by the reaper, and says so
+    val asleep = gateway.head(unavailable, "/", Seq("CleverCloud-Reaper" -> "poll"))
     assertEquals(asleep.status, 503)
     assert(asleep.header("CleverCloud-Reaper-Status").isDefined)
     // once the app is up, the poll reaches it: that is when the page reloads
     eventually("the poll to reach the app") {
-      val poll = gateway.head(polling, "/api/things", Seq("CleverCloud-Reaper" -> "poll"))
+      val poll = gateway.head(unavailable, "/", Seq("CleverCloud-Reaper" -> "poll"))
       poll.header("CleverCloud-Reaper-Status").isEmpty && poll.status == 200
     }
     assertEquals(status(), Some("Up"))
+  }
+
+  test("an app released from a route is not taken back by a stale proxy state of that route") {
+    eventually("the app to be up")(status().contains("Up"))
+    // only the main route manages the app now
+    val deleted = gateway.await(gateway.admin("/api/routes/route_unavailable").delete())
+    assertEquals(deleted.status, 200, deleted.body)
+    Thread.sleep(1500L)
+    // what disabling the reaper from the console does, before this node's proxy state shows the change:
+    // the route is still there, with the plugin enabled
+    val ext      = gateway.instance.env.adminExtensions.extension[CleverCloudReaperExtension].get
+    val released = gateway.await(ext.engine.release(appId, "the reaper was disabled on route 'reaped'", ignoring = Some(route.id)))
+    assertEquals(released, Right(()))
+    assertEquals(status(), None)
+    // several runs of the job later, the app is still not managed
+    Thread.sleep(3000L)
+    assertEquals(status(), None)
   }
 }

@@ -1,0 +1,65 @@
+---
+title: Headers
+description: The headers the reaper reads and sends, to ask for the state of an app and to know who answered.
+---
+
+# Headers
+
+The reaper reads one request header and sends one response header. The waiting page uses them,
+and so can your own front-end, to show a "starting" screen of its own.
+
+## `CleverCloud-Reaper` (request)
+
+| Value | The reaper answers |
+|---|---|
+| `status` | always, with the state of the app as JSON, whatever that state is. Never counts as traffic, never wakes the app up |
+| `poll` | while the app sleeps or is in error, with a `503` and the same JSON, and asks for a wake up if it sleeps. Otherwise, lets the request through to the app. Never counts as traffic |
+
+The value is case insensitive. Any other value is ignored: the request is handled as usual.
+
+```bash
+curl -s -H 'CleverCloud-Reaper: status' https://my-app.example.com/
+```
+
+```json
+{ "status": "WaitingForUp", "ready_delay_ms": 3000 }
+```
+
+The `status` is the state as the waiting page sees it:
+
+| `status` | |
+|---|---|
+| `WaitingForShutdown` | going to sleep: it will be started again once stopped |
+| `Down` | asleep |
+| `WaitingForUp` | starting |
+| `Error` | in error: the reaper does not touch it |
+| `Up` | anything else: up, initializing, or not managed. Requests go through |
+
+`ready_delay_ms` is the ready delay of the route, for a client that wants to wait as long as a held
+request would.
+
+## `CleverCloud-Reaper-Status` (response)
+
+Set on every answer the reaper gives **in place of the app**, with the same values as `status`
+above. Its presence means "the reaper answered, not your app"; its absence, on a request marked
+`poll`, means the app answered itself.
+
+That is the whole protocol of the waiting page:
+
+```js
+const r = await fetch(location.href, { method: 'HEAD', headers: { 'CleverCloud-Reaper': 'poll' } });
+if (r.headers.get('CleverCloud-Reaper-Status')) {
+  // still asleep, or in error: try again later
+} else if (r.status >= 500 || (r.status === 404 && r.headers.get('X-CleverCloudUpgrade') === 'true')) {
+  // the app is up but does not answer yet
+} else {
+  location.reload(); // the app answered
+}
+```
+
+## Other response headers
+
+| Header | When |
+|---|---|
+| `Retry-After: 30` | on the `503`s of the reaper: the waiting page, the `unavailable` mode, a poll |
+| `Cache-Control: no-store` | on every answer of the reaper, so no cache keeps a waiting page in place of the app |

@@ -1,0 +1,81 @@
+---
+title: Configuration
+description: Every setting of the extension, with its environment variable and default.
+---
+
+# Configuration
+
+The extension reads its settings from
+`otoroshi.admin-extensions.configurations.cloud-apim_extensions_clevercloudreaper`. Every key has a
+default and an environment variable.
+
+```json5
+otoroshi.admin-extensions.configurations.cloud-apim_extensions_clevercloudreaper {
+  enabled = true
+
+  clever {
+    // api tokens only work against the api bridge
+    api-url = "https://api-bridge.clever-cloud.com"
+    // the api token, created with `clever tokens create`. without it the reaper does nothing
+    api-token = ${?CLEVER_CLOUD_API_TOKEN}
+    // optional: the owner (orga_xxx or user_xxx) of the apps when a route does not say it.
+    // only a hint: the owner of each app is discovered from the token anyway
+    owner-id = ${?CLEVER_CLOUD_OWNER_ID}
+    // timeout of each call to the clever cloud api, in milliseconds
+    timeout = 30000
+  }
+
+  // evaluates everything and logs what would be put to sleep, but never stops an app
+  dry-run = false
+
+  // the timezone of the must-be-up ranges of the routes that do not set their own
+  timezone = "Europe/Paris"
+
+  job {
+    // every app is evaluated at this pace (milliseconds)
+    interval = 30000
+    // apps waking up or going to sleep are followed at this pace (milliseconds)
+    fast-interval = 5000
+  }
+
+  // how often each node pushes the last accesses it saw (milliseconds)
+  access-flush-interval = 10000
+
+  // how many transitions are kept per app
+  history-size = 100
+}
+```
+
+| Key | Env var | Default |
+|---|---|---|
+| `enabled` | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_ENABLED` | `true` |
+| `clever.api-url` | `CLEVER_CLOUD_API_URL` | `https://api-bridge.clever-cloud.com` |
+| `clever.api-token` | `CLEVER_CLOUD_API_TOKEN` | none |
+| `clever.owner-id` | `CLEVER_CLOUD_OWNER_ID` | none |
+| `clever.timeout` | `CLEVER_CLOUD_API_TIMEOUT` | `30000` |
+| `dry-run` | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_DRY_RUN` | `false` |
+| `timezone` | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_TIMEZONE` | `Europe/Paris` |
+| `job.interval` | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_JOB_INTERVAL` | `30000` |
+| `job.fast-interval` | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_JOB_FAST_INTERVAL` | `5000` |
+| `access-flush-interval` | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_ACCESS_FLUSH_INTERVAL` | `10000` |
+| `history-size` | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_HISTORY_SIZE` | `100` |
+
+## Notes
+
+- **`enabled`**: the extension is on as soon as its jar is loaded. In Otoroshi's dev mode it is on
+  whatever this says.
+- **`clever.api-url`**: change it only to go through a proxy of your own. The regular API endpoint
+  (`api.clever-cloud.com`) does not accept API tokens.
+- **`timezone`**: a [tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+  name. An unknown name falls back to `Europe/Paris`.
+- **`job.interval`** sets how late an idle app can be put to sleep after its grace period, and how
+  late a must-be-up range can start an app. Lowering it costs one more call to `GET /v2/summary`
+  per run.
+- **`job.fast-interval`** sets how soon an app that finished starting is seen up, so how long held
+  requests wait after the boot. It is also the pace of the job itself.
+- **`access-flush-interval`**: lower means fresher last accesses in the console and a slightly more
+  accurate grace period, at the cost of more datastore writes (one per app with traffic, per node,
+  per flush).
+
+The settings of each route are not here: they are in the plugin of the route. See the
+[plugin reference](./plugin).

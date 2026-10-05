@@ -1,0 +1,75 @@
+---
+title: FAQ
+description: Short answers to the questions people ask before putting their apps to sleep.
+---
+
+# FAQ
+
+### Does a sleeping app cost nothing?
+
+Its **instances** cost nothing: they are stopped. Its **add-ons** (databases, Cellar buckets, Redis,
+etc.) are billed apart and keep running: the reaper only touches apps.
+
+### How long does a wake up take?
+
+The time Clever Cloud takes to start the app: from about thirty seconds for a small Node.js or Go
+app to several minutes for an app that builds on start. Plus up to five seconds for the reaper to
+notice it is up, plus the ready delay of the route (3 seconds by default). The history of the app
+shows how long its wake ups take: the time between `Down → WaitingForUp` and `WaitingForUp → Up`.
+
+### Does the reaper rebuild my app when it wakes it up?
+
+It asks Clever Cloud to start the app's instances, like **Start** in the Clever Cloud console. Whether
+that reuses the last build or rebuilds from the last commit depends on the app's build cache
+settings on Clever Cloud.
+
+### Can a sleeping app run cron jobs or consume a queue?
+
+No: a stopped app does nothing. If an app has scheduled work, give it a
+[must-be-up range](./staying-awake#must-be-up-ranges) around it, or keep it out of the reaper.
+
+### Can I put an app to sleep that has no route in Otoroshi?
+
+No. The reaper measures traffic through routes, and wakes apps up through them: an app with no route
+would never wake up.
+
+### Can I put Otoroshi itself under the reaper?
+
+No: once asleep, nothing would wake it up.
+
+### What happens to WebSockets and long-lived connections?
+
+They are traffic when they open. A WebSocket that stays open for hours without new requests does not
+refresh the last access: give such apps a grace period longer than their sessions, or keep them out
+of the reaper.
+
+### What about POST requests on a sleeping app?
+
+In `hold` mode they are held like any other request, body included, and forwarded once the app is up.
+In `unavailable` mode they get a `503` and the client has to retry. A browser form `POST` is not a
+browser request in the reaper's sense (only `GET` and `HEAD` are): it gets the mode of the route.
+
+### Do crawlers keep my apps awake?
+
+If they reach them, yes: a crawl is traffic. Block them before the reaper (a robots.txt, an
+authentication plugin, a bot management plugin), or add a `user_agent`
+[monitoring filter](./staying-awake#monitoring-filters) for them.
+
+### Can several Otoroshi clusters manage the same app?
+
+They would not know about each other: one cluster could put an app to sleep while the other still
+routes traffic to it. The next request on the other cluster would wake it up again, so nothing
+breaks, but the apps would sleep less than they should. Manage each app from one cluster.
+
+### The app is managed by several routes with different settings. Which win?
+
+The most demanding: the longest grace period, the longest fail timeout, and every must-be-up range
+of every route. See [Several routes, one app](./route#several-routes-one-app).
+
+### What does the reaper store about my traffic?
+
+Only the date of the last request per app. No path, no IP address, no header.
+
+### Is there an equivalent for apps that are not on Clever Cloud?
+
+Not in this extension: it relies on the Clever Cloud API to stop and start apps.

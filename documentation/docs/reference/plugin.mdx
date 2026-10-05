@@ -1,0 +1,100 @@
+---
+title: Plugin
+description: The Clever Cloud Reaper plugin, its identifier, and every field of its configuration.
+---
+
+# Plugin
+
+| | |
+|---|---|
+| Name | `Cloud APIM - Clever Cloud Reaper` |
+| Identifier | `cp:otoroshi_plugins.com.cloud.apim.otoroshi.extensions.clevercloudreaper.CleverCloudReaper` |
+| Step | access validation (`ValidateAccess`) |
+| Instances per route | one |
+
+The plugin does nothing when the extension is disabled, and nothing on a route whose app cannot be
+found (no `app_id`, and no target on `app-<uuid>.cleverapps.io`).
+
+## Configuration
+
+| Field | Type | Default | |
+|---|---|---|---|
+| `app_id` | string | from the targets | the Clever Cloud app, `app_<uuid>` |
+| `owner_id` | string | discovered | its owner, `orga_<uuid>` or `user_<uuid>` |
+| `grace_period` | integer, seconds | `3600` | time without traffic before the app is put to sleep |
+| `fail_timeout` | integer, seconds | `900` | time a start or a stop may take before the app goes into error; longest wait of a held request |
+| `allow_waiting_page` | boolean | `true` | serve the waiting page to browsers |
+| `api_behavior` | `hold` \| `unavailable` | `hold` | what the other requests get while the app wakes up |
+| `ready_delay` | integer, seconds | `3` | wait of held requests once the app is up |
+| `must_be_up_at` | array of ranges | `[]` | time ranges where the app stays up |
+| `timezone` | string | the extension's | timezone of the ranges |
+| `monitoring_filters` | array of filters | `[]` | requests that are not traffic |
+| `waiting_page` | string, HTML | the built-in page | a custom waiting page |
+
+Values that cannot be read fall back to their default rather than breaking the route: a negative
+duration, an unknown `api_behavior` (it holds), a range with an invalid time, a filter with an
+unknown source or no regex (they are dropped).
+
+### A range of `must_be_up_at`
+
+| Field | Type | Default | |
+|---|---|---|---|
+| `days` | array of strings | every day | `monday`... `sunday`, or `mon`... `sun`, any case. Empty, `*`, `all`, `every_day` or `everyday` for every day |
+| `start` | string, `HH:mm` | `08:00` | included |
+| `end` | string, `HH:mm` | `19:00` | excluded. Before `start` for a range running overnight |
+
+### A filter of `monitoring_filters`
+
+| Field | Type | |
+|---|---|---|
+| `source` | `path` \| `uri` \| `header` \| `user_agent` \| `query` | what the regex is searched in |
+| `name` | string | the header or query param, for `header` and `query` |
+| `regex` | string | a Java regex, searched in the value. Anchor it with `^` and `$` for an exact match |
+
+## Example
+
+```json
+{
+  "plugin": "cp:otoroshi_plugins.com.cloud.apim.otoroshi.extensions.clevercloudreaper.CleverCloudReaper",
+  "enabled": true,
+  "include": [],
+  "exclude": [],
+  "config": {
+    "app_id": "app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab",
+    "grace_period": 1800,
+    "fail_timeout": 600,
+    "allow_waiting_page": true,
+    "api_behavior": "unavailable",
+    "ready_delay": 5,
+    "timezone": "Europe/Paris",
+    "must_be_up_at": [
+      { "days": ["mon", "tue", "wed", "thu", "fri"], "start": "08:30", "end": "19:00" },
+      { "days": ["*"], "start": "23:30", "end": "00:30" }
+    ],
+    "monitoring_filters": [
+      { "source": "path", "regex": "^/health$" },
+      { "source": "query", "name": "probe", "regex": ".+" }
+    ]
+  }
+}
+```
+
+## Responses of the plugin
+
+What the plugin answers by itself, without calling the app:
+
+| When | Status | Body | Headers |
+|---|---|---|---|
+| `CleverCloud-Reaper: status` | `200` | `{"status": "...", "ready_delay_ms": 3000}` | `CleverCloud-Reaper-Status` |
+| `CleverCloud-Reaper: poll`, app asleep or in error | `503` | same | `CleverCloud-Reaper-Status`, `Retry-After: 30` |
+| monitoring request, app asleep | `200` | `{"monitoring": true, "status": "..."}` | `CleverCloud-Reaper-Status` |
+| browser, app asleep, waiting page on | `503` | the waiting page | `CleverCloud-Reaper-Status`, `Retry-After: 30` |
+| app asleep, `unavailable` | `503` | `{"error": "the application is waking up, retry later", "status": "..."}` | `CleverCloud-Reaper-Status`, `Retry-After: 30` |
+| app asleep, `hold`, app in error | `503` | Otoroshi error, `the application could not be started` | |
+| app asleep, `hold`, fail timeout | `504` | Otoroshi error, `the application did not wake up in time` | |
+
+Every answer of the plugin carries `Cache-Control: no-store`, except the two Otoroshi errors, which
+use the error templates of the route. Their cause ids are `errors.clever.reaper.start.failed` and
+`errors.clever.reaper.wakeup.timeout`.
+
+The headers are described in [Headers](./headers).

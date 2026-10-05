@@ -22,6 +22,7 @@ class ReaperStore(env: Env, prefix: String) {
   private def historyKey(appId: String): String = s"$prefix:history:$appId"
   private def wakeKey(appId: String): String    = s"$prefix:wakes:$appId"
   private def lockKey(appId: String): String    = s"$prefix:locks:$appId"
+  private def disabledKey(routeId: String): String = s"$prefix:disabled:$routeId"
   private val settingsKey: String               = s"$prefix:settings"
 
   private def idOf(key: String): String = key.drop(key.lastIndexOf(":") + 1)
@@ -87,6 +88,16 @@ class ReaperStore(env: Env, prefix: String) {
   def wakesRequested(appIds: Seq[String])(using ec: ExecutionContext): Future[Set[String]] =
     if (appIds.isEmpty) Set.empty[String].vfuture
     else redis.mget(appIds.map(wakeKey)*).map(values => appIds.zip(values).collect { case (id, Some(_)) => id }.toSet)
+
+  // routes the reaper was just disabled on: the proxy state of a node can still have them as they were
+
+  def markDisabled(routeId: String, ttlMillis: Long): Future[Boolean] =
+    redis.set(disabledKey(routeId), System.currentTimeMillis().toString, pxMilliseconds = Some(ttlMillis))
+
+  def clearDisabled(routeId: String): Future[Long] = redis.del(disabledKey(routeId))
+
+  def recentlyDisabled()(using ec: ExecutionContext): Future[Set[String]] =
+    redis.keys(s"$prefix:disabled:*").map(_.map(idOf).toSet)
 
   // settings
 

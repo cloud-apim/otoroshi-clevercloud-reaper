@@ -1,0 +1,152 @@
+---
+title: Operations
+description: Rolling the reaper out safely, the dry-run mode and the kill switch, alerts, events, logs, and taking it out.
+---
+
+# Operations
+
+## Rolling it out
+
+The reaper stops real apps. A careful rollout looks like this:
+
+1. **Start in dry-run** for a day or two, on every route you plan to manage: the logs tell you which
+   apps would have been put to sleep, and when.
+2. **Add monitoring filters** for every uptime check and health probe that shows up as traffic: an
+   app your monitoring hits every minute never sleeps.
+3. **Set must-be-up ranges** for the apps people expect to find ready in the morning.
+4. **Choose the wake up mode** of each route: `hold` for APIs whose callers can wait a minute,
+   `unavailable` for the ones that retry.
+5. **Route the alert** to a channel someone reads.
+6. **Leave dry-run**, and watch the history of the first apps for a day.
+
+## Dry-run
+
+```bash
+CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_DRY_RUN=true
+```
+
+In dry-run the reaper does everything but stop apps: it follows their state, keeps their history and
+wakes up the ones that sleep. When an app would be put to sleep, it logs it instead, at most once
+every ten minutes per app:
+
+```
+[dry-run] would put my-staging-app (app_0f4c2b0e-...) to sleep: no traffic for 61 minutes
+```
+
+The console shows a yellow banner while dry-run is on. Dry-run is a setting of the extension: it
+takes a restart to switch it, and it applies to the whole node.
+
+## The kill switch
+
+The kill switch is the dry-run you can flip **at runtime, for the whole cluster**, from the console:
+the **Kill switch** button above the routes table. It is meant for "stop putting things to sleep, now":
+an incident, a demo day, a release week.
+
+While it is on:
+
+- no app is put to sleep, and the logs say which ones would have been;
+- wake ups keep working: sleeping apps still start on the next request;
+- the console shows who turned it on, and when.
+
+It is stored in the datastore and picked up by every node within a cluster sync. Only **super
+admins** can flip it.
+
+## Alerts
+
+When an app goes into `Error`, the reaper sends an Otoroshi **alert** with the alert name
+`CleverCloudReaperAppInError`:
+
+```json
+{
+  "@type": "AlertEvent",
+  "alert": "CleverCloudReaperAppInError",
+  "app_id": "app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab",
+  "app_name": "my-staging-app",
+  "from": "WaitingForUp",
+  "cause": "the app failed to start on clever cloud",
+  "routes": ["route_3f1c0a9e-..."],
+  "app": { "status": "Error", "...": "..." }
+}
+```
+
+Route it with an Otoroshi [data exporter](https://maif.github.io/otoroshi/manual/docs/entities/data-exporters):
+a mailer, a webhook to your chat, your SIEM. A filter that keeps only this alert:
+
+```json
+{
+  "include": [{ "@type": "AlertEvent", "alert": "CleverCloudReaperAppInError" }],
+  "exclude": []
+}
+```
+
+The [events reference](./reference/events) has every field.
+
+## Events
+
+Every transition of every app is also sent as an analytics event of type `CleverCloudReaperEvent`,
+with the transition and the full state of the app. Exported to Elasticsearch or any other analytics
+store, they answer the questions the console does not: how long apps sleep, how often they wake up,
+how long a wake up takes.
+
+```json
+{
+  "include": [{ "@type": "CleverCloudReaperEvent" }],
+  "exclude": []
+}
+```
+
+## Logs
+
+| Logger | Says |
+|---|---|
+| `cloud-apim-clevercloud-reaper` | every transition (`info`, `warn` for errors), dry-run and kill switch decisions, API errors |
+| `cloud-apim-clevercloud-reaper-extension` | startup, flushes that failed, wake ups that could not be asked |
+| `cloud-apim-clevercloud-reaper-api` | calls to Clever Cloud that failed |
+| `cloud-apim-clevercloud-reaper-waiters` | held requests that could not read the state of their app |
+
+A transition looks like:
+
+```
+my-staging-app (app_0f4c2b0e-...): Up -> WaitingForShutdown: no traffic for 61 minutes
+my-staging-app (app_0f4c2b0e-...): WaitingForShutdown -> Down: the app is stopped
+my-staging-app (app_0f4c2b0e-...): Down -> WaitingForUp: a request needs the app
+my-staging-app (app_0f4c2b0e-...): WaitingForUp -> Up: the app is up
+```
+
+Messages that would repeat at every run (a missing token, an app the token cannot see) are logged at
+most once every ten minutes.
+
+## Automation
+
+Everything the console does to an app, the [admin API](./reference/admin-api) does too, with an
+Otoroshi admin apikey: list the apps and their state, read a history, wake an app up, put it to
+sleep, reset it. For instance, to wake up a demo app ahead of a demo, from a CI job:
+
+```bash
+curl -X POST \
+  -u "$OTOROSHI_CLIENT_ID:$OTOROSHI_CLIENT_SECRET" \
+  "https://otoroshi-api.example.com/api/extensions/cloud-apim/extensions/clevercloud-reaper/apps/app_0f4c.../_wake"
+```
+
+The settings of a route are in the route itself: change them with the regular route API, or with
+your usual Otoroshi-as-code tooling.
+
+## Backups and migrations
+
+The settings of the routes travel with the routes: an Otoroshi export holds them. The state of the
+apps is in the datastore and is rebuilt on its own: an install that starts without it reads every
+app from Clever Cloud at its first run (`Initializing`, then `Up` or `Asleep`). Only the history is
+lost without a datastore backup.
+
+## Taking it out
+
+To stop using the reaper on some apps, **Disable the reaper** on their routes from the console: their
+apps are started if they sleep, and forgotten.
+
+To remove the extension altogether:
+
+1. disable the reaper on every route, or wake up every sleeping app;
+2. remove the plugin from the routes, if you want them clean;
+3. remove the jar, and restart.
+
+An app still asleep when the extension is removed stays asleep: nothing is left to wake it up.

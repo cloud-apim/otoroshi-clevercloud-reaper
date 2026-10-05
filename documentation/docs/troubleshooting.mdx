@@ -1,0 +1,100 @@
+---
+title: Troubleshooting
+description: What to check when an app does not go to sleep, does not wake up, or ends in error.
+---
+
+# Troubleshooting
+
+## The console says no API token is configured
+
+The node serving the backoffice has no `CLEVER_CLOUD_API_TOKEN` (or
+`otoroshi.admin-extensions.configurations.cloud-apim_extensions_clevercloudreaper.clever.api-token`).
+Set it and restart. Until then the reaper does nothing at all: no app is stopped or started.
+
+## The console says the last run failed
+
+The job could not list the apps on Clever Cloud. The message says why:
+
+- **`401` or `403`**: the token is wrong, revoked or expired. Create a new one (`clever tokens
+  create`) and restart.
+- **A timeout or a connection error**: Otoroshi cannot reach `api-bridge.clever-cloud.com`. Check
+  the outgoing network, and the Clever Cloud proxy of the global config if you need one.
+- **Rate limited**: something else uses the same token heavily. Give the reaper its own token.
+
+While the runs fail, nothing changes: apps that are up stay up, apps that sleep stay asleep, and
+requests on them wait (`hold`) or get the waiting page.
+
+## An app never goes to sleep
+
+Open the route in the console and read its **Status**:
+
+- **Goes to sleep: in ...** keeps going back up: something keeps sending traffic. Look at the access
+  logs of the route for an uptime check, a health probe, a crawler or a front-end polling the API,
+  and add a [monitoring filter](./staying-awake#monitoring-filters) for it.
+- **Goes to sleep: any moment**, for longer than 30 seconds: the reaper wants to, but something stops
+  it.
+  - Dry-run or the kill switch: there is a banner at the top of the routes table.
+  - A **must-be-up range** of one of the routes of the app covers the current time. Check the
+    timezone.
+  - Another route of the same app (listed under **Shared with**) has a longer grace period: the
+    longest wins.
+  - A deployment is running on Clever Cloud: the reaper never stops an app in the middle of one.
+- The status is **Initializing** and stays so: the token cannot see the app. Check the app id, and
+  that the user of the token is a member of the organisation that owns it. The logs say
+  `the clever cloud app ... is not visible with the configured token`.
+
+## An app does not wake up
+
+- **The route has no app id** and its targets are not on `cleverapps.io`: the reaper does not
+  manage it, and the plugin lets requests through to a stopped app. Set the app id.
+- **The request never reaches the reaper**: a plugin placed before it refused the request (an apikey
+  check, an authentication module). That is on purpose. Make sure the caller is authenticated.
+- **The app is in Error**: the reaper leaves it alone. Read the cause in the console, fix it, then
+  **Reset**.
+- **The app starts but never becomes Up**: its deployment fails or never ends on Clever Cloud. Its
+  logs on Clever Cloud say why, and the app ends in Error after the fail timeout.
+- **In a cluster, on a worker**: the worker cannot reach a leader. Its logs say
+  `could not ask for the wake up of ...`.
+
+## The waiting page never reloads
+
+The page reloads when its poll reaches the app and gets anything but a `5xx` or the `404` Clever
+Cloud answers without an instance. So:
+
+- If the app is **Up** in the console but the page stays on **Almost ready**, the app answers that
+  URL with a `5xx`. Open the URL with `curl` to see what it says.
+- If the page shows **Error**, the app is in error: see above.
+- If the page does not change at all, check the browser console: the page needs JavaScript, and its
+  script is inline.
+
+## A held request got a 504
+
+It waited for the fail timeout of the route and the app was still not up: see the history of the app
+to know where it was stuck. If the app does come up, but slowly, raise the fail timeout.
+
+A request cut **before** the fail timeout was cut by something in front of Otoroshi, or by the
+client itself: see [the timeouts in front of Otoroshi](./waking-up#hold-the-request-waits).
+
+## A browser gets the waiting page, but the route is in hold mode
+
+That is the expected behaviour: **Waiting page for browsers** applies first, whatever the mode, to
+`GET` and `HEAD` requests that accept `text/html`. Turn it off on the route if you want browsers to
+be held too.
+
+## An app went into Error with "unexpected clever cloud state"
+
+Clever Cloud reports the app as `MODERATED`, `DEFAULT_OF_PAYMENT`, or in another state the reaper
+does not handle. Sort it out with Clever Cloud, then **Reset** the app.
+
+## The app was started again right after a manual "Put to sleep now"
+
+The app is in a **must-be-up range**: the job starts it at its next run. Change the range first.
+
+## Where to look
+
+- the **History** of the app, in the console: every transition and its cause;
+- the **logs** of the leaders, logger `cloud-apim-clevercloud-reaper`;
+- the state of the app as the reaper sees it:
+  `GET /api/extensions/cloud-apim/extensions/clevercloud-reaper/apps/<app_id>` on the
+  [admin API](./reference/admin-api);
+- the state Clever Cloud reports: `clever status --app <app_id>`, or the Clever Cloud console.

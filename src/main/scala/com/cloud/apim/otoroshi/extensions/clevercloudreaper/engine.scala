@@ -36,6 +36,8 @@ class ReaperEngine(env: Env, conf: ReaperConfiguration, api: CleverCloudApi, sto
   // an app no route manages anymore is started again (and forgotten) after this long
   private val orphanDelay = 5.minutes
   private val wakeTtl     = 30.minutes
+  // long enough for every node to sync its proxy state after the reaper is disabled on a route
+  private val disabledTtl = 1.minute
 
   private val pluginId = s"cp:${classOf[CleverCloudReaper].getName}"
 
@@ -77,8 +79,10 @@ class ReaperEngine(env: Env, conf: ReaperConfiguration, api: CleverCloudApi, sto
       throttled.warn("no-token", "the clevercloud reaper has no clever cloud api token (CLEVER_CLOUD_API_TOKEN), it does nothing")
       lastTick.set(Json.obj("at" -> now, "full" -> full, "error" -> "no clever cloud api token configured"))
       Future.unit
-    } else {
-      val managed    = managedApps()
+    } else store.recentlyDisabled().flatMap { disabled =>
+      // a route the reaper was just disabled on can still be enabled in the proxy state of this node:
+      // managing its app again would undo the release of the app
+      val managed    = managedApps(env.proxyState.allRoutes().filterNot(r => disabled.contains(r.id)))
       if (full) lastFullTick.set(now)
       val candidates =
         if (full) managed.values.toSeq
@@ -123,6 +127,9 @@ class ReaperEngine(env: Env, conf: ReaperConfiguration, api: CleverCloudApi, sto
       }
     }
   }
+
+  /** The reaper is on again on a route: it is not one that was just disabled anymore. */
+  def routeEnabled(routeId: String): Future[Unit] = store.clearDisabled(routeId).map(_ => ())
 
   private def process(
       m: ManagedApp,
@@ -349,9 +356,10 @@ class ReaperEngine(env: Env, conf: ReaperConfiguration, api: CleverCloudApi, sto
    */
   def release(appId: String, cause: String, ignoring: Option[String] = None): Future[Either[String, Unit]] = {
     val stillManaged = managedApps(env.proxyState.allRoutes().filterNot(r => ignoring.contains(r.id))).contains(appId)
-    if (stillManaged) Right(()).vfuture
+    val marked       = ignoring.map(routeId => store.markDisabled(routeId, disabledTtl.toMillis).map(_ => ())).getOrElse(Future.unit)
+    if (stillManaged) marked.map(_ => Right(()))
     else
-      store
+      marked.flatMap(_ => store
         .withLock(appId) {
           store.state(appId).flatMap {
             case None                                                                                     => Right(()).vfuture
@@ -374,7 +382,7 @@ class ReaperEngine(env: Env, conf: ReaperConfiguration, api: CleverCloudApi, sto
               forget(appId).map(_ => Right(()))
           }
         }
-        .map(_.getOrElse(Left("the app is busy, try again in a moment")))
+        .map(_.getOrElse(Left("the app is busy, try again in a moment"))))
   }
 
   private def forget(appId: String): Future[Unit] = {

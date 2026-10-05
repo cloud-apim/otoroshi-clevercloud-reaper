@@ -91,9 +91,8 @@ class ModelsSuite extends munit.FunSuite {
     )
     assertEquals(CleverCloudReaperConfig.format.reads(custom.json).get, custom)
     assert(!custom.holdsRequests)
-    val polling = CleverCloudReaperConfig.format.reads(Json.obj("api_behavior" -> "client_poll")).get
-    assertEquals(polling.apiBehavior, CleverCloudReaperConfig.ClientPoll)
-    assert(!polling.holdsRequests)
+    // an unknown mode, like the client_poll of the first versions, holds
+    assert(CleverCloudReaperConfig.format.reads(Json.obj("api_behavior" -> "client_poll")).get.holdsRequests)
     assertEquals(CleverCloudReaperConfig.format.reads(Json.obj("grace_period" -> -5, "api_behavior" -> "what")).get.gracePeriod, 3600L)
   }
 

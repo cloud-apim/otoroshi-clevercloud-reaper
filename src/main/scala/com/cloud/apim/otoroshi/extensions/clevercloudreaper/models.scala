@@ -148,8 +148,6 @@ object CleverCloudReaperConfig {
   val Hold        = "hold"
   // a 503 with a Retry-After header, at once
   val Unavailable = "unavailable"
-  // a small html page that polls the requested path and reloads once the app answers it
-  val ClientPoll  = "client_poll"
 
   val default: CleverCloudReaperConfig = CleverCloudReaperConfig()
 
@@ -179,7 +177,6 @@ object CleverCloudReaperConfig {
         allowWaitingPage = json.select("allow_waiting_page").asOpt[Boolean].getOrElse(default.allowWaitingPage),
         apiBehavior = json.select("api_behavior").asOpt[String].map(_.trim.toLowerCase) match {
           case Some(Unavailable) => Unavailable
-          case Some(ClientPoll)  => ClientPoll
           case _                 => Hold
         },
         readyDelay = positive(json, "ready_delay", default.readyDelay),

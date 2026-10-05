@@ -1,0 +1,101 @@
+---
+title: The waiting page
+description: The page browsers get while their app wakes up, and how to replace it with your own.
+---
+
+# The waiting page
+
+Browsers that open a sleeping app get a waiting page, unless the route turned it off (see
+[Waking up](./waking-up#the-waiting-page-for-browsers)). The built-in page follows the light or dark
+theme of the browser, and shows the progress of the wake up.
+
+| Light | Dark |
+|---|---|
+| ![The waiting page, light](/img/screenshots/reaper-waiting-page.png) | ![The waiting page, dark](/img/screenshots/reaper-waiting-page-dark.png) |
+
+When the app cannot be started, the page says so:
+
+![The waiting page, when the app is in error](/img/screenshots/reaper-waiting-page-error.png)
+
+## Your own page
+
+Paste your HTML in **Custom waiting page** (`waiting_page`). It is served as is, with:
+
+- its **placeholders** replaced;
+- the **reload script** added right before `</body>` (or at the end, without a `</body>`).
+
+You only write the page: the script that polls the app and reloads the page is always added for you.
+
+### Placeholders
+
+| Placeholder | Replaced with |
+|---|---|
+| `{{route_name}}` | the name of the route |
+| `{{app_name}}` | the name of the app on Clever Cloud, or the route name when unknown yet |
+| `{{app_id}}` | the app id, `app_...` |
+| `{{status}}` | the state when the page was served: `Finishing going to sleep`, `Asleep, wake up requested`, `Starting` |
+
+The values are HTML-escaped.
+
+### Hooks for the script
+
+The script updates the page while it waits, through two hooks. Both are optional:
+
+- the element with the id **`clevercloud-reaper-status`** gets the current state as its text:
+  `Finishing going to sleep`, `Asleep, wake up requested`, `Starting`, `Almost ready` (the app is up
+  but does not answer yet), or `Error`;
+- the `<body>` gets the class **`clevercloud-reaper-error`** while the app is in error, and loses it
+  otherwise: style your error message with it.
+
+### A minimal page
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{{app_name}} is starting</title>
+  <style>
+    body { font-family: system-ui, sans-serif; display: grid; place-items: center; min-height: 100vh; margin: 0; }
+    .error { display: none; color: #c0392b; }
+    body.clevercloud-reaper-error .error { display: block; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>{{app_name}} is starting</h1>
+    <p>It was asleep to save energy. This page reloads as soon as it is ready.</p>
+    <p>Status: <strong id="clevercloud-reaper-status">{{status}}</strong></p>
+    <p class="error">It could not be started. The team has been notified.</p>
+  </main>
+</body>
+</html>
+```
+
+The built-in page is in the extension's resources, at
+[`cloudapim/extensions/clevercloudreaper/waiting.html`](https://github.com/cloud-apim/otoroshi-clevercloud-reaper/blob/main/src/main/resources/cloudapim/extensions/clevercloudreaper/waiting.html):
+a good starting point for your own.
+
+:::caution Keep it self-contained
+The page is served while the app is asleep, by the route of the app: a stylesheet, a script or an
+image served by the app itself is not available. Inline what the page needs, or load it from
+another host.
+:::
+
+## What the script does
+
+Every five seconds, the script sends a `HEAD` request to the URL of the page with the header
+`CleverCloud-Reaper: poll`:
+
+- **The reaper answers** (the response carries `CleverCloud-Reaper-Status`): the app still sleeps or
+  is in error. The script shows the state and tries again, every thirty seconds in error.
+- **A `5xx`, or the `404` of Clever Cloud** for an app with no instance
+  (`X-CleverCloudUpgrade: true`): the app is up but does not answer yet. The script shows
+  `Almost ready` and tries again.
+- **Anything else**: the app answered. The page reloads, and the user gets the app.
+
+The poll is not traffic: it neither keeps the app awake nor counts as an access. The reload that
+follows it does. While the app sleeps, a poll does ask for a wake up again, so a page left open in a
+tab keeps the wake up alive until the app is up. Details of the headers are in [the headers reference](./reference/headers).

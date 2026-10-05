@@ -576,9 +576,9 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
         val withApp = if (config.appId.isDefined) config else config.copy(appId = detectApp(route))
         if (withApp.appId.isEmpty) Left("the clever cloud app behind this route could not be guessed, please choose one")
         else Right(withPlugin(route, enabled = true, withApp))
-      }.map {
-        case Left(result) => result
-        case Right(route) => Results.Ok(routeRow(route) - "search")
+      }.flatMap {
+        case Left(result) => result.vfuture
+        case Right(route) => engine.routeEnabled(route.id).map(_ => Results.Ok(routeRow(route) - "search"))
       }
     }
 

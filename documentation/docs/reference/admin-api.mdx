@@ -1,0 +1,143 @@
+---
+title: Admin API
+description: The admin API routes of the extension, to read the state of the apps and act on them from scripts and CI jobs.
+---
+
+# Admin API
+
+The extension adds routes to the Otoroshi admin API, under
+`/api/extensions/cloud-apim/extensions/clevercloud-reaper`. They take the same credentials as the
+rest of the admin API: an admin apikey, with Basic auth or the `Otoroshi-Client-Id` /
+`Otoroshi-Client-Secret` headers.
+
+```bash
+export OTO=http://otoroshi-api.oto.tools:8080
+export AUTH='admin-api-apikey-id:admin-api-apikey-secret'
+export REAPER=$OTO/api/extensions/cloud-apim/extensions/clevercloud-reaper
+```
+
+The actions (`_wake`, `_reap`, `_reset`) must reach a **leader**: workers answer them with a `400`.
+
+## List the apps
+
+```bash
+curl -u $AUTH $REAPER/apps
+```
+
+Every app the reaper manages, with its state:
+
+```json
+[
+  {
+    "app_id": "app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab",
+    "status": "Up",
+    "owner_id": "orga_7d2a6c0e-5b1f-4e2d-9a8b-0123456789ab",
+    "name": "my-staging-app",
+    "clever_state": "SHOULD_BE_UP",
+    "cause": "the app is up",
+    "error_cause": null,
+    "last_status_update": 1791216000000,
+    "last_up_at": 1791216000000,
+    "last_down_at": 1791212400000,
+    "action_at": 1791215940000,
+    "last_check_at": 1791216300000,
+    "routes": ["route_3f1c0a9e-6b2d-4e7f-8a9b-0123456789ab"],
+    "grace_period": 3600000,
+    "fail_timeout": 900000,
+    "last_access": 1791216240000,
+    "reap_at": 1791219840000
+  }
+]
+```
+
+| Field | |
+|---|---|
+| `status` | `WaitingForInit`, `Up`, `WaitingForShutdown`, `Down`, `WaitingForUp` or `Error` |
+| `clever_state` | the state Clever Cloud reported at the last check |
+| `cause` | why the app is in its state |
+| `error_cause` | why it is in error, when it is |
+| `last_status_update` | when the state last changed |
+| `last_up_at`, `last_down_at` | when it last became `Up`, `Down` |
+| `action_at` | when the reaper last asked Clever Cloud to stop or start it, while it waits for the result |
+| `last_check_at` | when the reaper last looked at it |
+| `routes` | the routes that manage it |
+| `grace_period`, `fail_timeout` | the ones in force, the longest of its routes, **in milliseconds** |
+| `last_access` | its last access, from any route and any node |
+| `reap_at` | when it will be put to sleep if nothing happens, while it is `Up` |
+
+Every date is in epoch milliseconds.
+
+## Read one app
+
+```bash
+curl -u $AUTH $REAPER/apps/app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab
+```
+
+The same object, or a `404` when the reaper does not manage the app.
+
+## Read the history of an app
+
+```bash
+curl -u $AUTH "$REAPER/apps/app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab/history?page=1&page_size=20"
+```
+
+The transitions, latest first. `page` starts at 1, `page_size` is 20 by default and 500 at most.
+
+```json
+[
+  {
+    "app_id": "app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab",
+    "from": "WaitingForUp",
+    "to": "Up",
+    "cause": "the app is up",
+    "at": 1791216000000
+  },
+  {
+    "app_id": "app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab",
+    "from": "Down",
+    "to": "WaitingForUp",
+    "cause": "a request needs the app",
+    "at": 1791215940000
+  }
+]
+```
+
+## Wake an app up
+
+```bash
+curl -u $AUTH -X POST $REAPER/apps/app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab/_wake
+```
+
+Starts the app if it sleeps, exactly as a request would, and answers with its state. It is a no-op on
+an app that is up. `404` when the reaper does not manage the app.
+
+## Put an app to sleep
+
+```bash
+curl -u $AUTH -X POST $REAPER/apps/app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab/_reap
+```
+
+Stops the app now, whatever its traffic, and answers with its new state, `WaitingForShutdown`. The
+history records `put to sleep by apikey <name>`. A `409` when the app is not `Up`, is not
+`SHOULD_BE_UP` on Clever Cloud, or is busy with another operation.
+
+## Reset an app in error
+
+```bash
+curl -u $AUTH -X POST $REAPER/apps/app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab/_reset
+```
+
+Puts the app back in `WaitingForInit`: its state is read from Clever Cloud again at the next run of
+the job. Works from any state, not only `Error`.
+
+## Cluster plumbing
+
+`PUT /api/extensions/cloud-apim/extensions/clevercloud-reaper/cluster/access` is how workers push
+their last accesses to the leaders: a JSON object of app ids to epoch milliseconds. It is not meant
+to be called by hand.
+
+## Configuring routes
+
+The settings of the reaper are in the routes. Use the regular routes API of Otoroshi to change
+them: the plugin is a slot of `plugins`, with the identifier and the configuration described in the
+[plugin reference](./plugin).

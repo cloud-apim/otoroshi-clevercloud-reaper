@@ -1,0 +1,113 @@
+---
+title: Keeping apps awake
+description: Time ranges where an app must stay up, and the monitoring requests that should neither keep an app awake nor wake it up.
+---
+
+# Keeping apps awake
+
+Two settings decide what keeps an app awake beyond its traffic: **must-be-up ranges**, which keep it
+up at given times whatever happens, and **monitoring filters**, which keep some requests from
+counting at all.
+
+## Must-be-up ranges
+
+A must-be-up range is a time window where the app stays up, even without a single request. Outside
+of its ranges the app goes back to the usual rule: asleep after its grace period without traffic.
+
+Typical uses:
+
+- a staging app that people use during office hours, and that should not make the first person of
+  the day wait for it;
+- a demo app that must be ready for a demo at 14:00;
+- an app that runs a nightly batch.
+
+### How they work
+
+- **At the start of a range**, a sleeping app is started, without waiting for a request.
+- **During a range**, the app is never put to sleep.
+- **At the end of a range**, nothing happens at once: the app is put to sleep once it has had no
+  traffic for its grace period, counted from its last request (or from when it came up).
+
+The job checks the ranges every 30 seconds (`job.interval`), so an app is started within 30 seconds
+of the start of its range, plus its boot time. Start the range a few minutes before you need the
+app.
+
+### Writing a range
+
+Each range has **days**, a **start** and an **end**, in `HH:mm`:
+
+```json
+"must_be_up_at": [
+  { "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "08:30", "end": "19:00" },
+  { "days": ["saturday"], "start": "10:00", "end": "12:00" }
+]
+```
+
+- **Days** are full English names (`monday`) or their first three letters (`mon`), in any case. No
+  days, or `*`, means **every day**.
+- The **start** is included, the **end** is not: `08:30`–`19:00` covers 08:30:00 up to 18:59:59.
+- A range whose end is **before its start runs overnight**: `22:00`–`02:00` on `friday` covers
+  Friday 22:00 to Saturday 02:00. The days of an overnight range are the days it **starts**.
+- With several ranges, being in **any** of them is enough.
+
+### Timezone
+
+The ranges are read in the **timezone** of the route, or the default timezone of the extension when
+the route does not set one (`Europe/Paris` unless
+`CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_TIMEZONE` says otherwise). Use a
+[tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) name such as
+`Europe/Paris` or `America/New_York`, not an offset: daylight saving time is then handled for you.
+
+## Monitoring filters
+
+An uptime check that hits an app every minute is, to a naive reaper, an app with traffic every
+minute: it never sleeps. And once it sleeps, the check wakes it up. Monitoring filters tell the
+reaper which requests are checks.
+
+A request that matches **any** filter of the route:
+
+- does **not** count as traffic: it does not keep the app awake;
+- while the app sleeps, does **not** wake it up, and gets a `200` instead:
+
+  ```json
+  {"monitoring": true, "status": "Down"}
+  ```
+
+- while the app is up, goes through to the app as usual.
+
+### Writing a filter
+
+A filter has a **source**, a **regex**, and for headers and query params a **name**:
+
+| Source | Looks at |
+|---|---|
+| `path` | the path, without the query string: `/health` |
+| `uri` | the path and query string: `/health?full=true` |
+| `header` | the values of the header `name` |
+| `user_agent` | the `User-Agent` header |
+| `query` | the values of the query param `name` |
+
+The regex is **searched** in the value, like `grep`: `health` matches `/api/health/live`. Anchor it
+with `^` and `$` for an exact match. A regex that does not compile matches nothing, rather than
+breaking the route.
+
+```json
+"monitoring_filters": [
+  { "source": "path", "regex": "^/(health|ready|live)z?$" },
+  { "source": "user_agent", "regex": "UptimeRobot|Pingdom|StatusCake|Better Uptime|kube-probe" },
+  { "source": "header", "name": "X-Monitoring", "regex": "^true$" }
+]
+```
+
+:::tip A filter for your load balancer too
+Health checks from a load balancer or Kubernetes in front of Otoroshi count as traffic if they go
+through the route. A `user_agent` filter on `kube-probe` or `ELB-HealthChecker` keeps them out.
+:::
+
+## Requests that never count
+
+Some requests never count as traffic, whatever the filters:
+
+- requests refused by a plugin placed **before** the reaper in the route (an invalid apikey, a failed
+  authentication): they never reach it;
+- the status requests and polls of the waiting page (see [the headers](./reference/headers)).

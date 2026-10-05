@@ -508,7 +508,6 @@ class CleverCloudReaperRoutePage extends Component {
         possibleValues: [
           { label: 'Held until the app is up', value: 'hold' },
           { label: '503 with a Retry-After header', value: 'unavailable' },
-          { label: 'A small html page that polls the path and reloads once the app answers', value: 'client_poll' },
         ],
       },
     },

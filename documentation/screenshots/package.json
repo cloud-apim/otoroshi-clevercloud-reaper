@@ -1,0 +1,14 @@
+{
+  "name": "clevercloud-reaper-screenshots",
+  "private": true,
+  "type": "module",
+  "description": "Playwright script that drives a local Otoroshi against a fake Clever Cloud and captures the Clever Cloud Reaper pages for the docs",
+  "scripts": {
+    "setup": "npm install && npx playwright install chromium",
+    "shoot": "node shoot.mjs",
+    "fake-clever": "node fake-clever.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.56.0"
+  }
+}

@@ -1,0 +1,98 @@
+---
+title: Events
+description: The analytics event sent at every transition, and the alert sent when an app goes into error.
+---
+
+# Events
+
+The reaper sends two kinds of Otoroshi events. Both go through the regular analytics pipeline, so
+any [data exporter](https://maif.github.io/otoroshi/manual/docs/entities/data-exporters) can route
+them: Elasticsearch, Kafka, a webhook, a mailer, a file...
+
+## `CleverCloudReaperEvent`
+
+An analytics event, sent at **every transition** of every app.
+
+```json
+{
+  "@id": "1867351288133443584",
+  "@timestamp": 1791216000000,
+  "@type": "CleverCloudReaperEvent",
+  "@product": "otoroshi",
+  "@serviceId": "app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab",
+  "@service": "my-staging-app",
+  "@env": "prod",
+  "transition": {
+    "app_id": "app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab",
+    "from": "Up",
+    "to": "WaitingForShutdown",
+    "cause": "no traffic for 61 minutes",
+    "at": 1791216000000
+  },
+  "app": {
+    "app_id": "app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab",
+    "status": "WaitingForShutdown",
+    "name": "my-staging-app",
+    "...": "the state of the app, as in the admin API"
+  }
+}
+```
+
+| Field | |
+|---|---|
+| `@serviceId`, `@service` | the app id, and its name on Clever Cloud |
+| `transition` | the state it left, the state it entered, why, and when |
+| `app` | the full state of the app after the transition, as returned by the [admin API](./admin-api#list-the-apps) |
+
+Exporter filter:
+
+```json
+{ "include": [{ "@type": "CleverCloudReaperEvent" }], "exclude": [] }
+```
+
+A few narrower ones, as the `include` entry:
+
+| To follow | Include |
+|---|---|
+| apps put to sleep | `{ "@type": "CleverCloudReaperEvent", "transition": { "to": "WaitingForShutdown" } }` |
+| wake ups asked | `{ "@type": "CleverCloudReaperEvent", "transition": { "to": "WaitingForUp" } }` |
+| wake ups done | `{ "@type": "CleverCloudReaperEvent", "transition": { "from": "WaitingForUp", "to": "Up" } }` |
+| manual actions | `{ "@type": "CleverCloudReaperEvent", "transition": { "cause": { "$regex": ".* by .*" } } }` |
+
+## `CleverCloudReaperAppInError`
+
+An alert, sent when an app **enters the `Error` state**.
+
+```json
+{
+  "@id": "1867351288133443585",
+  "@timestamp": 1791216000000,
+  "@type": "AlertEvent",
+  "@product": "otoroshi",
+  "@serviceId": "app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab",
+  "@service": "my-staging-app",
+  "@env": "prod",
+  "alert": "CleverCloudReaperAppInError",
+  "app_id": "app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab",
+  "app_name": "my-staging-app",
+  "from": "WaitingForUp",
+  "cause": "the app did not start within the fail timeout",
+  "routes": ["route_3f1c0a9e-6b2d-4e7f-8a9b-0123456789ab"],
+  "app": { "...": "the state of the app" }
+}
+```
+
+| Field | |
+|---|---|
+| `alert` | always `CleverCloudReaperAppInError` |
+| `from` | the state the app was in |
+| `cause` | why it went into error: see [the causes](../lifecycle#errors) |
+| `routes` | the routes of the app, to find who owns it |
+
+Exporter filter:
+
+```json
+{ "include": [{ "@type": "AlertEvent", "alert": "CleverCloudReaperAppInError" }], "exclude": [] }
+```
+
+The transition into `Error` also sends a `CleverCloudReaperEvent`, like any other.

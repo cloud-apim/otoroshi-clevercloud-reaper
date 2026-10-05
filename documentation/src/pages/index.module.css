@@ -1,0 +1,229 @@
+.hero {
+  background: var(--reaper-hero-bg);
+  color: #f1f0fa;
+  padding: 4.5rem 0 4rem;
+  overflow: hidden;
+}
+
+.heroLayout {
+  display: grid;
+  gap: 2.5rem;
+  align-items: center;
+}
+
+@media (min-width: 997px) {
+  .heroLayout {
+    grid-template-columns: minmax(0, 1fr) 220px;
+  }
+}
+
+.heroEyebrow {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ffc94a;
+  margin-bottom: 1rem;
+}
+
+.heroTitle {
+  font-size: clamp(2.1rem, 5vw, 3.3rem);
+  line-height: 1.08;
+  margin: 0 0 1rem;
+  text-wrap: balance;
+}
+
+.heroAccent {
+  color: #ffc94a;
+}
+
+.heroSubtitle {
+  font-size: 1.08rem;
+  line-height: 1.55;
+  color: #cfd0e3;
+  max-width: 46rem;
+  margin: 0 0 1.9rem;
+}
+
+.heroButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.buttonPrimary,
+.buttonGhost {
+  display: inline-block;
+  padding: 0.62rem 1.25rem;
+  border-radius: 4px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+
+.buttonPrimary {
+  background: #f9b000;
+  color: #12142b;
+}
+.buttonPrimary:hover {
+  background: #ffc94a;
+  color: #12142b;
+  text-decoration: none;
+}
+
+.buttonGhost {
+  border-color: rgba(241, 240, 250, 0.4);
+  color: #f1f0fa;
+}
+.buttonGhost:hover {
+  border-color: #f1f0fa;
+  color: #f1f0fa;
+  text-decoration: none;
+}
+
+.heroLogo {
+  width: 100%;
+  max-width: 200px;
+  justify-self: center;
+  border-radius: 44px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.section {
+  padding: 3.5rem 0;
+}
+
+.sectionAlt {
+  background: var(--reaper-surface-alt);
+}
+
+.sectionTag {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--reaper-muted);
+  margin-bottom: 0.6rem;
+}
+
+.sectionTitle {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  margin: 0 0 0.6rem;
+  text-wrap: balance;
+}
+
+.sectionLede {
+  color: var(--reaper-muted);
+  max-width: 46rem;
+  margin: 0 0 2rem;
+}
+
+.grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(15.5rem, 1fr));
+}
+
+.card {
+  background: var(--reaper-surface);
+  border: 1px solid var(--reaper-border);
+  border-radius: 6px;
+  padding: 1.2rem 1.3rem 1.35rem;
+}
+
+.cardKicker {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ifm-color-primary);
+  margin-bottom: 0.45rem;
+}
+
+.cardTitle {
+  font-size: 1.06rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+}
+
+.cardBody {
+  color: var(--reaper-muted);
+  font-size: 0.94rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.layers {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.layer {
+  display: grid;
+  grid-template-columns: 2.6rem minmax(0, 9rem) minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: baseline;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--reaper-border);
+  border-left: 3px solid var(--ifm-color-primary);
+  border-radius: 4px;
+  background: var(--reaper-surface);
+}
+
+@media (max-width: 700px) {
+  .layer {
+    grid-template-columns: 2.6rem minmax(0, 1fr);
+  }
+  .layer > p {
+    grid-column: 1 / -1;
+  }
+}
+
+.layerNum {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.78rem;
+  color: var(--ifm-color-primary);
+}
+
+.layerName {
+  font-weight: 700;
+}
+
+.layerDesc {
+  color: var(--reaper-muted);
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+.snippet {
+  background: var(--reaper-surface);
+  border: 1px solid var(--reaper-border);
+  border-radius: 6px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.snippet pre {
+  margin: 0;
+  border-radius: 0;
+}
+
+.screens {
+  display: grid;
+  gap: 1.2rem;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+@media (min-width: 997px) {
+  .screens {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
+.screen {
+  width: 100%;
+  border: 1px solid var(--reaper-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(10, 12, 30, 0.14);
+}
