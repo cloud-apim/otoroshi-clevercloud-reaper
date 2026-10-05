@@ -197,8 +197,9 @@ class CleverCloudReaperRoutesPage extends Component {
         showLink: false,
         hideAddItemAction: true,
         rowNavigation: true,
-        navigateTo: (item) => this.props.history.push(REAPER_PATH + '/routes/' + item.id),
-        itemUrl: (item) => '/bo/dashboard' + REAPER_PATH + '/routes/' + item.id,
+        // '/edit/' in the url is what makes otoroshi center the page, like its other forms
+        navigateTo: (item) => this.props.history.push(REAPER_PATH + '/edit/' + item.id),
+        itemUrl: (item) => '/bo/dashboard' + REAPER_PATH + '/edit/' + item.id,
         extractKey: (item) => item.id,
         defaultValue: () => ({}),
         formSchema: {},
@@ -333,7 +334,7 @@ const REAPER_DEFAULT_CONFIG = {
 };
 
 class CleverCloudReaperRoutePage extends Component {
-  state = { row: null, config: null, dirty: false, busy: false, error: null, message: null, historyKey: 0 };
+  state = { row: null, config: null, dirty: false, busy: false, error: null, historyKey: 0 };
 
   routeId = () => this.props.match.params.routeId;
 
@@ -354,24 +355,25 @@ class CleverCloudReaperRoutePage extends Component {
         if (!silent) this.setState({ error: json.error || 'could not load the route' });
         return;
       }
-      this.props.setTitle('Clever Cloud Reaper - ' + json.name);
+      this.props.setTitle((json.reaper.enabled ? 'Update the reaper of ' : 'Enable the reaper on ') + json.name);
       const config = this.state.dirty && this.state.config
         ? this.state.config
         : Object.assign({}, REAPER_DEFAULT_CONFIG, json.reaper.config || {}, json.reaper.config ? {} : { app_id: json.reaper.app_id });
       this.setState({ row: json, config: config, error: null });
     });
 
-  report = ({ status, json }, success) => {
-    if (status >= 400) this.setState({ message: { kind: 'danger', text: json.error || 'something went wrong' } });
-    else this.setState({ message: json.warning ? { kind: 'warning', text: json.warning } : { kind: 'success', text: success } });
+  // like the other otoroshi forms: nothing to say when it worked, an alert when it did not
+  report = ({ status, json }) => {
+    if (status >= 400) window.newAlert(json.error || 'something went wrong');
+    else if (json.warning) window.newAlert(json.warning);
     return status < 400;
   };
 
-  run = (call, success) => {
+  run = (call) => {
     this.setState({ busy: true });
     return call
       .then((res) => {
-        const ok = this.report(res, success);
+        const ok = this.report(res);
         this.setState({ busy: false, historyKey: this.state.historyKey + 1 });
         return ok;
       })
@@ -385,49 +387,47 @@ class CleverCloudReaperRoutePage extends Component {
     const call = enabled
       ? reaperCall('PUT', '/routes/' + this.routeId() + '/config', this.state.config)
       : reaperCall('POST', '/routes/' + this.routeId() + '/_enable', this.state.config);
-    this.run(call, enabled ? 'Settings saved' : 'The reaper is enabled on this route. The change reaches the gateway within a few seconds.').then((ok) => {
+    this.run(call).then((ok) => {
       if (ok) this.setState({ dirty: false });
     });
   };
 
   disable = () =>
     this.confirm('Disable the reaper on this route? If no other route keeps it under the reaper, the app is started again when it sleeps.', () =>
-      this.run(reaperCall('POST', '/routes/' + this.routeId() + '/_disable'), 'The reaper is disabled on this route')
+      this.run(reaperCall('POST', '/routes/' + this.routeId() + '/_disable'))
     );
 
-  appAction = (action, success, question) => {
-    const go = () => this.run(reaperCall('POST', '/apps/' + this.state.row.reaper.app_id + '/' + action), success);
+  appAction = (action, question) => {
+    const go = () => this.run(reaperCall('POST', '/apps/' + this.state.row.reaper.app_id + '/' + action));
     if (question) this.confirm(question, go);
     else go();
   };
 
+  // laid out like the buttons otoroshi puts in its forms, "Manage organizations" and such
   renderActions() {
     const h = React.createElement;
     const row = this.state.row;
     const state = row.state || {};
     const status = row.reaper.enabled ? state.status : null;
     const busy = this.state.busy;
-    const button = (key, kind, icon, label, onClick, title) =>
-      h('button', { key: key, type: 'button', className: 'btn btn-sm ' + kind, disabled: busy, title: title, onClick: onClick },
+    const button = (key, icon, label, onClick, title) =>
+      h('button', { key: key, type: 'button', className: 'btn btn-sm btn-primary', disabled: busy, title: title, onClick: onClick },
         h('i', { className: 'fas ' + icon }), ' ' + label);
-    return h('div', { className: 'd-flex gap-2 mb-3', style: { flexWrap: 'wrap' } },
-      h('button', { type: 'button', className: 'btn btn-sm btn-secondary', onClick: () => this.props.history.push(REAPER_PATH) },
-        h('i', { className: 'fas fa-arrow-left' }), ' All routes'),
-      row.reaper.enabled
-        ? button('save', 'btn-success', 'fa-save', 'Save', this.save)
-        : button('enable', 'btn-success', 'fa-power-off', 'Enable the reaper', this.save, 'enables the reaper with the settings below'),
-      row.reaper.enabled ? button('disable', 'btn-danger', 'fa-power-off', 'Disable the reaper', this.disable) : null,
-      status === 'Up'
-        ? button('reap', 'btn-info', 'fa-moon', 'Put to sleep now', () => this.appAction('_reap', 'The app is going to sleep', 'Put the app to sleep now, whatever its traffic?'))
-        : null,
-      status === 'Down' || status === 'WaitingForShutdown'
-        ? button('wake', 'btn-primary', 'fa-sun', 'Wake up', () => this.appAction('_wake', 'The app is waking up'))
-        : null,
-      status === 'Error'
-        ? button('reset', 'btn-warning', 'fa-rotate-left', 'Reset', () => this.appAction('_reset', 'The app is reset: the reaper evaluates it again', 'Reset the app? The reaper evaluates it again from scratch.'), 'leaves the error state')
-        : null,
-      h('a', { className: 'btn btn-sm btn-secondary', href: '/bo/dashboard/routes/' + row.id + '?tab=flow', style: { marginLeft: 'auto' } },
-        h('i', { className: 'fas fa-road' }), ' Open the route')
+    return h('div', { className: 'row mb-3' },
+      h('label', { className: 'col-xs-12 col-sm-2 col-form-label' }),
+      h('div', { className: 'col-sm-10 d-flex justify-content-end input-group-btn' },
+        status === 'Down' || status === 'WaitingForShutdown'
+          ? button('wake', 'fa-sun', 'Wake up', () => this.appAction('_wake'))
+          : null,
+        status === 'Up'
+          ? button('reap', 'fa-moon', 'Put to sleep now', () => this.appAction('_reap', 'Put the app to sleep now, whatever its traffic?'))
+          : null,
+        status === 'Error'
+          ? button('reset', 'fa-rotate-left', 'Reset', () => this.appAction('_reset', 'Reset the app? The reaper evaluates it again from scratch.'), 'leaves the error state')
+          : null,
+        h('a', { className: 'btn btn-sm btn-primary', href: '/bo/dashboard/routes/' + row.id + '?tab=flow' },
+          h('i', { className: 'fas fa-road' }), ' Open the route')
+      )
     );
   }
 
@@ -462,7 +462,8 @@ class CleverCloudReaperRoutePage extends Component {
       last_change: field('Last change', status ? reaperDate(state.last_status_update) : '-'),
       routes: field('Shared with', (row.siblings || []).length === 0
         ? 'no other route'
-        : row.siblings.map((s) => h('a', { key: s.id, href: '/bo/dashboard' + REAPER_PATH + '/routes/' + s.id }, s.name))),
+        : row.siblings.map((s) => h('a', { key: s.id, href: '/bo/dashboard' + REAPER_PATH + '/edit/' + s.id }, s.name))),
+      actions: { type: () => this.renderActions(), props: {} },
     };
   }
 
@@ -562,15 +563,10 @@ class CleverCloudReaperRoutePage extends Component {
     if (this.state.error) return h('div', { className: 'alert alert-danger' }, this.state.error);
     if (!this.state.row || !this.state.config) return h('div', null, 'loading ...');
     const row = this.state.row;
+    const busy = this.state.busy;
     return h('div', null,
-      this.state.message
-        ? h('div', { className: 'alert alert-' + this.state.message.kind + ' d-flex justify-content-between', role: 'alert' },
-            h('span', null, this.state.message.text),
-            h('i', { className: 'fas fa-times', style: { cursor: 'pointer' }, onClick: () => this.setState({ message: null }) }))
-        : null,
-      this.renderActions(),
       h(Form, {
-        flow: ['<<<Status', 'reaper', 'status', 'app', 'clever_state', 'last_access', 'next', 'last_change', 'routes'],
+        flow: ['<<<Status', 'reaper', 'status', 'app', 'clever_state', 'last_access', 'next', 'last_change', 'routes', 'actions'],
         schema: this.statusSchema(),
         value: {},
         onChange: () => {},
@@ -588,7 +584,16 @@ class CleverCloudReaperRoutePage extends Component {
             value: {},
             onChange: () => {},
           })
-        : null
+        : null,
+      h('hr'),
+      // the bar every otoroshi form has at the bottom: disabling the reaper is this page's delete
+      h('div', { className: 'displayGroupBtn float-end' },
+        row.reaper.enabled
+          ? h('button', { type: 'button', className: 'btn btn-danger', disabled: busy, title: 'disable the reaper on this route', onClick: this.disable }, 'Disable the reaper')
+          : null,
+        h('button', { type: 'button', className: 'btn btn-success', disabled: busy, onClick: this.save },
+          h('i', { className: 'fas fa-edit' }), row.reaper.enabled ? ' Update the reaper' : ' Enable the reaper')
+      )
     );
   }
 }

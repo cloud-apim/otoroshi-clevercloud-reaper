@@ -261,7 +261,7 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
        |      // the most specific first: the router takes the first that matches
        |      routes: [
        |        {
-       |          path: '/extensions/cloud-apim/clevercloud-reaper/routes/:routeId',
+       |          path: '/extensions/cloud-apim/clevercloud-reaper/edit/:routeId',
        |          component: (props) => React.createElement(CleverCloudReaperRoutePage, props, null),
        |        },
        |        {
