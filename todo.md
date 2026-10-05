@@ -7,7 +7,7 @@
 - [x] Logo SVG (une faux dont la lame est un croissant de lune) : `documentation/static/img/logo.svg`, repris comme icône de l'extension
 - [ ] Logo « final » et illustration (Otoroshi, la mort avec sa faux, le logo Clever Cloud) : à générer avec un modèle de diffusion
 - [x] Script Playwright de screenshots « en pleine action » contre un faux Clever Cloud : `documentation/screenshots`
-- [ ] Lancer le script sur l'Otoroshi local (démarré avec `CLEVER_CLOUD_API_URL=http://127.0.0.1:9990 CLEVER_CLOUD_API_TOKEN=demo`) et commiter les captures
+- [x] Lancer le script sur l'Otoroshi local (démarré avec `CLEVER_CLOUD_API_URL=http://127.0.0.1:9990 CLEVER_CLOUD_API_TOKEN=demo`) et commiter les captures
 
 ## CI
 
