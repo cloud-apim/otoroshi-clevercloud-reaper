@@ -2,9 +2,9 @@
 // Injected inside the extension closure: React, Component and BASE come from there.
 
 function reaperEnsureStyles() {
-  if (document.getElementById('clever-reaper-styles')) return;
+  if (document.getElementById('clevercloud-reaper-styles')) return;
   const style = document.createElement('style');
-  style.id = 'clever-reaper-styles';
+  style.id = 'clevercloud-reaper-styles';
   style.textContent = [
     '.reaper-panel { background: var(--bg-color_level2); color: var(--color_level2);',
     '  border: 1px solid var(--border-color); border-radius: 4px; padding: 12px 16px; margin-bottom: 12px; }',
@@ -106,7 +106,7 @@ function reaperDate(ts) {
   return new Date(ts).toLocaleString();
 }
 
-class CleverReaperConfigEditor extends Component {
+class CleverCloudReaperConfigEditor extends Component {
   constructor(props) {
     super(props);
     const c = props.config || {};
@@ -258,7 +258,7 @@ class CleverReaperConfigEditor extends Component {
   }
 }
 
-class CleverReaperHistory extends Component {
+class CleverCloudReaperHistory extends Component {
   state = { items: null, error: null };
 
   componentDidMount() {
@@ -302,7 +302,7 @@ const REAPER_COLUMNS = [
 // remembered per viewer, like a filter: nothing breaks when the storage is not there
 function reaperStoredPageSize() {
   try {
-    const value = parseInt(window.localStorage.getItem('clever-reaper-page-size'), 10);
+    const value = parseInt(window.localStorage.getItem('clevercloud-reaper-page-size'), 10);
     return REAPER_PAGE_SIZES.indexOf(value) > -1 ? value : 15;
   } catch (e) {
     return 15;
@@ -311,11 +311,11 @@ function reaperStoredPageSize() {
 
 function reaperStorePageSize(value) {
   try {
-    window.localStorage.setItem('clever-reaper-page-size', String(value));
+    window.localStorage.setItem('clevercloud-reaper-page-size', String(value));
   } catch (e) {}
 }
 
-class CleverReaperPage extends Component {
+class CleverCloudReaperPage extends Component {
   state = {
     overview: null,
     rows: [],
@@ -584,9 +584,9 @@ class CleverReaperPage extends Component {
     const rows = [h('tr', { key: row.id, className: this.state.expanded === row.id ? 'reaper-expanded' : '' }, cells)];
     if (this.state.expanded === row.id) {
       let content = null;
-      if (this.state.panel === 'history') content = h(CleverReaperHistory, { appId: row.reaper.app_id });
+      if (this.state.panel === 'history') content = h(CleverCloudReaperHistory, { appId: row.reaper.app_id });
       else
-        content = h(CleverReaperConfigEditor, {
+        content = h(CleverCloudReaperConfigEditor, {
           key: row.id + this.state.panel,
           routeId: row.id,
           config: row.reaper.config,

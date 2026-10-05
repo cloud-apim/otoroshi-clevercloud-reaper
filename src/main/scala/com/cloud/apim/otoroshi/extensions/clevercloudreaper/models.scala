@@ -1,4 +1,4 @@
-package com.cloud.apim.otoroshi.extensions.cleverreaper
+package com.cloud.apim.otoroshi.extensions.clevercloudreaper
 
 import otoroshi.next.models.NgRoute
 import otoroshi.next.plugins.api.NgPluginConfig
@@ -113,13 +113,13 @@ object UpRange {
 }
 
 /** The reaper settings of one route, held by the plugin instance itself. Durations are in seconds. */
-final case class CleverReaperConfig(
+final case class CleverCloudReaperConfig(
     appId: Option[String] = None,
     ownerId: Option[String] = None,
     gracePeriod: Long = 3600L,
     failTimeout: Long = 900L,
     allowWaitingPage: Boolean = true,
-    apiBehavior: String = CleverReaperConfig.Hold,
+    apiBehavior: String = CleverCloudReaperConfig.Hold,
     readyDelay: Long = 3L,
     mustBeUpAt: Seq[UpRange] = Seq.empty,
     timezone: Option[String] = None,
@@ -127,9 +127,9 @@ final case class CleverReaperConfig(
     waitingPage: Option[String] = None
 ) extends NgPluginConfig {
 
-  def json: JsValue = CleverReaperConfig.format.writes(this)
+  def json: JsValue = CleverCloudReaperConfig.format.writes(this)
 
-  def holdsRequests: Boolean = apiBehavior == CleverReaperConfig.Hold
+  def holdsRequests: Boolean = apiBehavior == CleverCloudReaperConfig.Hold
 
   def zone(default: ZoneId): ZoneId = timezone.flatMap(z => Try(ZoneId.of(z)).toOption).getOrElse(default)
 
@@ -142,7 +142,7 @@ final case class CleverReaperConfig(
   def isMonitoring(request: RequestHeader): Boolean = monitoringFilters.exists(_.matches(request))
 }
 
-object CleverReaperConfig {
+object CleverCloudReaperConfig {
 
   // the request waits, held open, until the app is up
   val Hold        = "hold"
@@ -151,13 +151,13 @@ object CleverReaperConfig {
   // a small html page that polls the requested path and reloads once the app answers it
   val ClientPoll  = "client_poll"
 
-  val default: CleverReaperConfig = CleverReaperConfig()
+  val default: CleverCloudReaperConfig = CleverCloudReaperConfig()
 
   private def positive(json: JsValue, key: String, default: Long): Long =
     json.select(key).asOpt[Long].filter(_ >= 0L).getOrElse(default)
 
-  val format: Format[CleverReaperConfig] = new Format[CleverReaperConfig] {
-    override def writes(o: CleverReaperConfig): JsValue = Json.obj(
+  val format: Format[CleverCloudReaperConfig] = new Format[CleverCloudReaperConfig] {
+    override def writes(o: CleverCloudReaperConfig): JsValue = Json.obj(
       "app_id"             -> o.appId,
       "owner_id"           -> o.ownerId,
       "grace_period"       -> o.gracePeriod,
@@ -170,8 +170,8 @@ object CleverReaperConfig {
       "monitoring_filters" -> o.monitoringFilters.map(_.json),
       "waiting_page"       -> o.waitingPage
     )
-    override def reads(json: JsValue): JsResult[CleverReaperConfig] = Try {
-      CleverReaperConfig(
+    override def reads(json: JsValue): JsResult[CleverCloudReaperConfig] = Try {
+      CleverCloudReaperConfig(
         appId = json.select("app_id").asOpt[String].map(_.trim).filter(_.nonEmpty),
         ownerId = json.select("owner_id").asOpt[String].map(_.trim).filter(_.nonEmpty),
         gracePeriod = positive(json, "grace_period", default.gracePeriod),
@@ -213,7 +213,7 @@ object CleverAppIds {
   def fromVhosts(route: NgRoute, vhosts: Map[String, String]): Option[String] =
     route.backend.targets.iterator.flatMap(t => vhosts.get(t.hostname.trim.toLowerCase)).nextOption()
 
-  def resolve(route: NgRoute, config: CleverReaperConfig): Option[String] = config.appId.orElse(fromRoute(route))
+  def resolve(route: NgRoute, config: CleverCloudReaperConfig): Option[String] = config.appId.orElse(fromRoute(route))
 }
 
 /** What the reaper knows of one clever cloud app. Written by the leader only, read by every node. */
@@ -231,8 +231,8 @@ final case class AppState(
     actionAt: Option[Long] = None,
     lastCheckAt: Option[Long] = None,
     routes: Seq[String] = Seq.empty,
-    gracePeriod: Long = CleverReaperConfig.default.gracePeriod * 1000L,
-    failTimeout: Long = CleverReaperConfig.default.failTimeout * 1000L
+    gracePeriod: Long = CleverCloudReaperConfig.default.gracePeriod * 1000L,
+    failTimeout: Long = CleverCloudReaperConfig.default.failTimeout * 1000L
 ) {
   def json: JsValue = AppState.format.writes(this)
 }
@@ -274,8 +274,8 @@ object AppState {
         actionAt = json.select("action_at").asOpt[Long],
         lastCheckAt = json.select("last_check_at").asOpt[Long],
         routes = json.select("routes").asOpt[Seq[String]].getOrElse(Seq.empty),
-        gracePeriod = json.select("grace_period").asOpt[Long].getOrElse(CleverReaperConfig.default.gracePeriod * 1000L),
-        failTimeout = json.select("fail_timeout").asOpt[Long].getOrElse(CleverReaperConfig.default.failTimeout * 1000L)
+        gracePeriod = json.select("grace_period").asOpt[Long].getOrElse(CleverCloudReaperConfig.default.gracePeriod * 1000L),
+        failTimeout = json.select("fail_timeout").asOpt[Long].getOrElse(CleverCloudReaperConfig.default.failTimeout * 1000L)
       )
     } match {
       case Success(value) => JsSuccess(value)
@@ -317,15 +317,15 @@ object ReaperSettings {
 }
 
 /** One clever cloud app and every route the reaper manages it through, with their settings merged. */
-final case class ManagedApp(appId: String, routes: Seq[(NgRoute, CleverReaperConfig)]) {
+final case class ManagedApp(appId: String, routes: Seq[(NgRoute, CleverCloudReaperConfig)]) {
 
   def routeIds: Seq[String] = routes.map(_._1.id).distinct.sorted
 
   def ownerId: Option[String] = routes.iterator.flatMap(_._2.ownerId).nextOption()
 
   // routes disagreeing on their settings: the app is kept awake by the most demanding one
-  def gracePeriodMillis: Long = routes.map(_._2.gracePeriod).maxOption.getOrElse(CleverReaperConfig.default.gracePeriod) * 1000L
-  def failTimeoutMillis: Long = routes.map(_._2.failTimeout).maxOption.getOrElse(CleverReaperConfig.default.failTimeout) * 1000L
+  def gracePeriodMillis: Long = routes.map(_._2.gracePeriod).maxOption.getOrElse(CleverCloudReaperConfig.default.gracePeriod) * 1000L
+  def failTimeoutMillis: Long = routes.map(_._2.failTimeout).maxOption.getOrElse(CleverCloudReaperConfig.default.failTimeout) * 1000L
 
   def inUpRange(now: Instant, defaultZone: ZoneId): Boolean = routes.exists(_._2.inUpRange(now, defaultZone))
 }

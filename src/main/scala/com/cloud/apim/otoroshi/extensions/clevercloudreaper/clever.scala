@@ -1,4 +1,4 @@
-package com.cloud.apim.otoroshi.extensions.cleverreaper
+package com.cloud.apim.otoroshi.extensions.clevercloudreaper
 
 import otoroshi.env.Env
 import otoroshi.utils.http.Implicits.*
@@ -49,7 +49,7 @@ object CleverError {
  */
 class CleverCloudApi(env: Env, baseUrl: String, token: Option[String], timeout: FiniteDuration) {
 
-  private val logger = Logger("cloud-apim-clever-reaper-api")
+  private val logger = Logger("cloud-apim-clevercloud-reaper-api")
   private val base   = baseUrl.stripSuffix("/")
 
   def configured: Boolean = token.exists(_.trim.nonEmpty)

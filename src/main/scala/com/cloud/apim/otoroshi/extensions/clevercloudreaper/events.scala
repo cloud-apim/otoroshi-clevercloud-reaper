@@ -1,4 +1,4 @@
-package com.cloud.apim.otoroshi.extensions.cleverreaper
+package com.cloud.apim.otoroshi.extensions.clevercloudreaper
 
 import org.joda.time.DateTime
 import otoroshi.env.Env
@@ -6,11 +6,11 @@ import otoroshi.events.{AlertEvent, AnalyticEvent}
 import play.api.libs.json.*
 
 /** Sent at every transition of an app, so data exporters can follow what the reaper does. */
-final case class CleverReaperEvent(transition: Transition, state: AppState, env: Env) extends AnalyticEvent {
+final case class CleverCloudReaperEvent(transition: Transition, state: AppState, env: Env) extends AnalyticEvent {
 
   val `@id`: String                          = env.snowflakeGenerator.nextIdStr()
   val `@timestamp`: DateTime                 = DateTime.now()
-  override def `@type`: String               = "CleverReaperEvent"
+  override def `@type`: String               = "CleverCloudReaperEvent"
   override def `@service`: String            = state.name.getOrElse(state.appId)
   override def `@serviceId`: String          = state.appId
   override def fromOrigin: Option[String]    = None
@@ -30,7 +30,7 @@ final case class CleverReaperEvent(transition: Transition, state: AppState, env:
 }
 
 /** Sent when an app falls into error: the reaper leaves it alone until someone resets it. */
-final case class CleverReaperAppInErrorAlert(transition: Transition, state: AppState, env: Env) extends AlertEvent {
+final case class CleverCloudReaperAppInErrorAlert(transition: Transition, state: AppState, env: Env) extends AlertEvent {
 
   val `@id`: String                          = env.snowflakeGenerator.nextIdStr()
   val `@timestamp`: DateTime                 = DateTime.now()
@@ -47,7 +47,7 @@ final case class CleverReaperAppInErrorAlert(transition: Transition, state: AppS
     "@serviceId" -> `@serviceId`,
     "@service"   -> `@service`,
     "@env"       -> _env.env,
-    "alert"      -> "CleverReaperAppInError",
+    "alert"      -> "CleverCloudReaperAppInError",
     "app_id"     -> state.appId,
     "app_name"   -> state.name,
     "from"       -> transition.from,

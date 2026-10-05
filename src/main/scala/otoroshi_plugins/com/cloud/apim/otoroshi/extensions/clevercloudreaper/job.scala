@@ -1,4 +1,4 @@
-package otoroshi_plugins.com.cloud.apim.otoroshi.extensions.cleverreaper
+package otoroshi_plugins.com.cloud.apim.otoroshi.extensions.clevercloudreaper
 
 import otoroshi.env.Env
 import otoroshi.next.plugins.api.{NgPluginCategory, NgStep}
@@ -13,9 +13,9 @@ import scala.concurrent.{ExecutionContext, Future}
  * tick at the fast pace follows the apps waking up or going to sleep; every `job.interval` all the
  * apps are evaluated.
  */
-class CleverReaperJob extends Job {
+class CleverCloudReaperJob extends Job {
 
-  override def uniqueId: JobId                    = JobId("cloud-apim.extensions.CleverReaper.job")
+  override def uniqueId: JobId                    = JobId("cloud-apim.extensions.CleverCloudReaper.job")
   override def name: String                       = "Cloud APIM - Clever Cloud Reaper"
   override def description: Option[String]        =
     "Puts the Clever Cloud apps without traffic to sleep, and follows the ones waking up".some
@@ -29,15 +29,15 @@ class CleverReaperJob extends Job {
     JobInstantiation.OneInstancePerOtoroshiCluster
 
   override def predicate(ctx: JobContext, env: Env): Option[Boolean] =
-    env.adminExtensions.extension[CleverReaperExtension].isDefined.some
+    env.adminExtensions.extension[CleverCloudReaperExtension].isDefined.some
 
   override def initialDelay(ctx: JobContext, env: Env): Option[FiniteDuration] = 10.seconds.some
 
   override def interval(ctx: JobContext, env: Env): Option[FiniteDuration] =
-    env.adminExtensions.extension[CleverReaperExtension].map(_.conf.fastInterval).getOrElse(5.seconds).some
+    env.adminExtensions.extension[CleverCloudReaperExtension].map(_.conf.fastInterval).getOrElse(5.seconds).some
 
   override def jobRun(ctx: JobContext)(using env: Env, ec: ExecutionContext): Future[Unit] =
-    env.adminExtensions.extension[CleverReaperExtension] match {
+    env.adminExtensions.extension[CleverCloudReaperExtension] match {
       case None      => Future.unit
       case Some(ext) => ext.engine.tick()
     }

@@ -1,4 +1,4 @@
-package com.cloud.apim.otoroshi.extensions.cleverreaper
+package com.cloud.apim.otoroshi.extensions.clevercloudreaper
 
 import otoroshi.env.Env
 import otoroshi.utils.http.Implicits.*
@@ -16,7 +16,7 @@ import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Success, Try}
 
-/** The extension settings, from `otoroshi.admin-extensions.configurations.cloud-apim_extensions_cleverreaper`. */
+/** The extension settings, from `otoroshi.admin-extensions.configurations.cloud-apim_extensions_clevercloudreaper`. */
 final case class ReaperConfiguration(
     apiUrl: String,
     apiToken: Option[String],
@@ -149,7 +149,7 @@ class ReaperWaiters(
     wakeAgainEvery: FiniteDuration = 10.seconds
 ) {
 
-  private val logger   = Logger("cloud-apim-clever-reaper-waiters")
+  private val logger   = Logger("cloud-apim-clevercloud-reaper-waiters")
   private val watchers = new TrieMap[String, Promise[ReaperStatus]]()
 
   def watching: Int = watchers.size

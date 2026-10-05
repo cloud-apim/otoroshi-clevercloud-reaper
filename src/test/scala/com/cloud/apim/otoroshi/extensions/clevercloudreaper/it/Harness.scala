@@ -1,4 +1,4 @@
-package com.cloud.apim.otoroshi.extensions.cleverreaper.it
+package com.cloud.apim.otoroshi.extensions.clevercloudreaper.it
 
 import com.typesafe.config.ConfigFactory
 import org.apache.pekko.actor.ActorSystem
@@ -151,7 +151,7 @@ class Gateway(apiUrl: String) {
       .parseString(s"""
         |otoroshi.storage = "inmemory"
         |otoroshi.next.state-sync-interval = 500
-        |otoroshi.admin-extensions.configurations.cloud-apim_extensions_cleverreaper {
+        |otoroshi.admin-extensions.configurations.cloud-apim_extensions_clevercloudreaper {
         |  enabled = true
         |  clever.api-url = "$apiUrl"
         |  clever.api-token = "test-token"
@@ -162,7 +162,7 @@ class Gateway(apiUrl: String) {
         |""".stripMargin)
       .resolve()
     val oto    = Otoroshi(
-      ServerConfig(address = "0.0.0.0", port = Some(port), rootDir = Files.createTempDirectory("clever-reaper-it").toFile),
+      ServerConfig(address = "0.0.0.0", port = Some(port), rootDir = Files.createTempDirectory("clevercloud-reaper-it").toFile),
       config
     )
     oto.startAndStopOnShutdown()

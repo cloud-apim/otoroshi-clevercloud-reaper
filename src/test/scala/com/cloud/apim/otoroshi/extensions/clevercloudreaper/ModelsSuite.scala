@@ -1,4 +1,4 @@
-package com.cloud.apim.otoroshi.extensions.cleverreaper
+package com.cloud.apim.otoroshi.extensions.clevercloudreaper
 
 import play.api.libs.json.Json
 import play.api.libs.typedmap.TypedMap
@@ -56,7 +56,7 @@ class ModelsSuite extends munit.FunSuite {
   }
 
   test("monitoring filters match their source, and any of them is enough") {
-    val config = CleverReaperConfig(monitoringFilters =
+    val config = CleverCloudReaperConfig(monitoringFilters =
       Seq(
         MonitoringFilter("path", None, "^/health$"),
         MonitoringFilter("user_agent", None, "(?i)statuscake"),
@@ -78,32 +78,32 @@ class ModelsSuite extends munit.FunSuite {
   }
 
   test("the plugin config has sensible defaults and survives a round trip") {
-    val config = CleverReaperConfig.format.reads(Json.obj()).get
-    assertEquals(config, CleverReaperConfig.default)
+    val config = CleverCloudReaperConfig.format.reads(Json.obj()).get
+    assertEquals(config, CleverCloudReaperConfig.default)
     assertEquals(config.gracePeriod, 3600L)
     assert(config.holdsRequests)
-    val custom = CleverReaperConfig(
+    val custom = CleverCloudReaperConfig(
       appId = Some("app_1"),
       gracePeriod = 120L,
-      apiBehavior = CleverReaperConfig.Unavailable,
+      apiBehavior = CleverCloudReaperConfig.Unavailable,
       mustBeUpAt = Seq(UpRange(Seq(DayOfWeek.MONDAY), LocalTime.of(8, 0), LocalTime.of(19, 0))),
       monitoringFilters = Seq(MonitoringFilter("path", None, "^/health$"))
     )
-    assertEquals(CleverReaperConfig.format.reads(custom.json).get, custom)
+    assertEquals(CleverCloudReaperConfig.format.reads(custom.json).get, custom)
     assert(!custom.holdsRequests)
-    val polling = CleverReaperConfig.format.reads(Json.obj("api_behavior" -> "client_poll")).get
-    assertEquals(polling.apiBehavior, CleverReaperConfig.ClientPoll)
+    val polling = CleverCloudReaperConfig.format.reads(Json.obj("api_behavior" -> "client_poll")).get
+    assertEquals(polling.apiBehavior, CleverCloudReaperConfig.ClientPoll)
     assert(!polling.holdsRequests)
-    assertEquals(CleverReaperConfig.format.reads(Json.obj("grace_period" -> -5, "api_behavior" -> "what")).get.gracePeriod, 3600L)
+    assertEquals(CleverCloudReaperConfig.format.reads(Json.obj("grace_period" -> -5, "api_behavior" -> "what")).get.gracePeriod, 3600L)
   }
 
   test("must be up ranges use the route timezone, or the default one") {
     // 11:30 in paris (summer time), 09:30 in utc
     val monday10Utc = ZonedDateTime.of(2026, 10, 5, 9, 30, 0, 0, ZoneId.of("UTC")).toInstant
     val ranges      = Seq(UpRange(Seq.empty, LocalTime.of(11, 0), LocalTime.of(12, 0)))
-    assert(CleverReaperConfig(mustBeUpAt = ranges).inUpRange(monday10Utc, paris))
-    assert(!CleverReaperConfig(mustBeUpAt = ranges, timezone = Some("UTC")).inUpRange(monday10Utc, paris))
-    assert(!CleverReaperConfig().inUpRange(monday10Utc, paris))
+    assert(CleverCloudReaperConfig(mustBeUpAt = ranges).inUpRange(monday10Utc, paris))
+    assert(!CleverCloudReaperConfig(mustBeUpAt = ranges, timezone = Some("UTC")).inUpRange(monday10Utc, paris))
+    assert(!CleverCloudReaperConfig().inUpRange(monday10Utc, paris))
   }
 
   test("the default clever cloud domain gives the app id") {
@@ -122,11 +122,11 @@ class ModelsSuite extends munit.FunSuite {
     val html = WaitingPage.render("<html><body><h1>{{route_name}}</h1></body></html>", "<script>x</script>", "app_1", None, Some(ReaperStatus.Down))
     assert(html.contains("&lt;script&gt;x&lt;/script&gt;"))
     assert(html.indexOf("fetch(window.location.href") < html.indexOf("</body>"))
-    assert(WaitingPage.render("no body here", "r", "app_1", None, None).contains("Clever-Reaper"))
+    assert(WaitingPage.render("no body here", "r", "app_1", None, None).contains("CleverCloud-Reaper"))
     // the page polls its own path, and tells the reaper's answers from the app's by their marker
     assert(html.contains("method: 'HEAD'"))
-    assert(html.contains("'Clever-Reaper': 'poll'"))
-    assert(html.contains("r.headers.get('Clever-Reaper-Status')"))
+    assert(html.contains("'CleverCloud-Reaper': 'poll'"))
+    assert(html.contains("r.headers.get('CleverCloud-Reaper-Status')"))
     assertEquals(WaitingPage.publicStatus(Some(ReaperStatus.WaitingForUp)), "WaitingForUp")
     assertEquals(WaitingPage.publicStatus(Some(ReaperStatus.WaitingForInit)), "Up")
     assertEquals(WaitingPage.publicStatus(None), "Up")

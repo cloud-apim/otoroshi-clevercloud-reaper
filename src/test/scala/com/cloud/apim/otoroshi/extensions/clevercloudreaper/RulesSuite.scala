@@ -1,7 +1,7 @@
-package com.cloud.apim.otoroshi.extensions.cleverreaper
+package com.cloud.apim.otoroshi.extensions.clevercloudreaper
 
-import com.cloud.apim.otoroshi.extensions.cleverreaper.ReaperRules.*
-import com.cloud.apim.otoroshi.extensions.cleverreaper.ReaperStatus.*
+import com.cloud.apim.otoroshi.extensions.clevercloudreaper.ReaperRules.*
+import com.cloud.apim.otoroshi.extensions.clevercloudreaper.ReaperStatus.*
 
 class RulesSuite extends munit.FunSuite {
 

@@ -1,9 +1,9 @@
-package com.cloud.apim.otoroshi.extensions.cleverreaper
+package com.cloud.apim.otoroshi.extensions.clevercloudreaper
 
 import otoroshi.env.Env
 import otoroshi.next.models.NgRoute
 import otoroshi.utils.syntax.implicits.*
-import otoroshi_plugins.com.cloud.apim.otoroshi.extensions.cleverreaper.CleverReaper
+import otoroshi_plugins.com.cloud.apim.otoroshi.extensions.clevercloudreaper.CleverCloudReaper
 import play.api.Logger
 import play.api.libs.json.*
 
@@ -21,7 +21,7 @@ import scala.util.control.NonFatal
  */
 class ReaperEngine(env: Env, conf: ReaperConfiguration, api: CleverCloudApi, store: ReaperStore, memory: ReaperMemory) {
 
-  private val logger                  = Logger("cloud-apim-clever-reaper")
+  private val logger                  = Logger("cloud-apim-clevercloud-reaper")
   private val throttled               = new ThrottledLogger(logger)
   private given ec: ExecutionContext  = env.otoroshiExecutionContext
 
@@ -37,7 +37,7 @@ class ReaperEngine(env: Env, conf: ReaperConfiguration, api: CleverCloudApi, sto
   private val orphanDelay = 5.minutes
   private val wakeTtl     = 30.minutes
 
-  private val pluginId = s"cp:${classOf[CleverReaper].getName}"
+  private val pluginId = s"cp:${classOf[CleverCloudReaper].getName}"
 
   def lastTickJson: JsObject = lastTick.get()
 
@@ -46,7 +46,7 @@ class ReaperEngine(env: Env, conf: ReaperConfiguration, api: CleverCloudApi, sto
     routes
       .flatMap { route =>
         route.plugins.slots.find(s => s.plugin == pluginId && s.enabled).flatMap { instance =>
-          val config = CleverReaperConfig.format.reads(instance.config.raw).getOrElse(CleverReaperConfig.default)
+          val config = CleverCloudReaperConfig.format.reads(instance.config.raw).getOrElse(CleverCloudReaperConfig.default)
           CleverAppIds.resolve(route, config).map(appId => (appId, route, config))
         }
       }
@@ -65,7 +65,7 @@ class ReaperEngine(env: Env, conf: ReaperConfiguration, api: CleverCloudApi, sto
       val full = now - lastFullTick.get() >= conf.interval.toMillis
       doTick(now, full)
         .recover { case NonFatal(e) =>
-          logger.error("error while running the clever reaper", e)
+          logger.error("error while running the clevercloud reaper", e)
           lastTick.set(Json.obj("at" -> now, "full" -> full, "error" -> e.getMessage))
         }
         .andThen { case _ => running.set(false) }
@@ -74,7 +74,7 @@ class ReaperEngine(env: Env, conf: ReaperConfiguration, api: CleverCloudApi, sto
 
   private def doTick(now: Long, full: Boolean): Future[Unit] = {
     if (!api.configured) {
-      throttled.warn("no-token", "the clever reaper has no clever cloud api token (CLEVER_CLOUD_API_TOKEN), it does nothing")
+      throttled.warn("no-token", "the clevercloud reaper has no clever cloud api token (CLEVER_CLOUD_API_TOKEN), it does nothing")
       lastTick.set(Json.obj("at" -> now, "full" -> full, "error" -> "no clever cloud api token configured"))
       Future.unit
     } else {
@@ -239,8 +239,8 @@ class ReaperEngine(env: Env, conf: ReaperConfiguration, api: CleverCloudApi, sto
       val label = s"${next.name.getOrElse(next.appId)} (${next.appId})"
       if (decision.status == ReaperStatus.Error) logger.warn(s"$label: ${t.from} -> ${t.to}: ${t.cause}")
       else logger.info(s"$label: ${t.from} -> ${t.to}: ${t.cause}")
-      CleverReaperEvent(t, next, env).toAnalytics()(using env)
-      if (decision.status == ReaperStatus.Error) CleverReaperAppInErrorAlert(t, next, env).toAnalytics()(using env)
+      CleverCloudReaperEvent(t, next, env).toAnalytics()(using env)
+      if (decision.status == ReaperStatus.Error) CleverCloudReaperAppInErrorAlert(t, next, env).toAnalytics()(using env)
       next
     }
   }

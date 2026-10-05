@@ -1,6 +1,6 @@
-package otoroshi_plugins.com.cloud.apim.otoroshi.extensions.cleverreaper
+package otoroshi_plugins.com.cloud.apim.otoroshi.extensions.clevercloudreaper
 
-import com.cloud.apim.otoroshi.extensions.cleverreaper.*
+import com.cloud.apim.otoroshi.extensions.clevercloudreaper.*
 import otoroshi.env.Env
 import otoroshi.gateway.Errors
 import otoroshi.next.plugins.api.*
@@ -11,7 +11,7 @@ import play.api.mvc.{RequestHeader, Result, Results}
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-object CleverReaperPluginSchema {
+object CleverCloudReaperPluginSchema {
 
   val configFlow: Seq[String] = Seq(
     "app_id",
@@ -33,7 +33,7 @@ object CleverReaperPluginSchema {
       "label" -> "Clever Cloud app",
       "props" -> Json.obj(
         "help"               -> "The app behind this route. When empty, it is guessed from the default 'app-<uuid>.cleverapps.io' domain of the targets",
-        "optionsFrom"        -> "/extensions/cloud-apim/extensions/clever-reaper/clever/apps",
+        "optionsFrom"        -> "/extensions/cloud-apim/extensions/clevercloud-reaper/clever/apps",
         "optionsTransformer" -> Json.obj("label" -> "label", "value" -> "id")
       )
     ),
@@ -71,9 +71,9 @@ object CleverReaperPluginSchema {
       "props" -> Json.obj(
         "help"    -> "What the requests that do not get the waiting page get while the app wakes up",
         "options" -> Json.arr(
-          Json.obj("value" -> CleverReaperConfig.Hold, "label"        -> "Held until the app is up"),
-          Json.obj("value" -> CleverReaperConfig.Unavailable, "label" -> "503 with a Retry-After header"),
-          Json.obj("value" -> CleverReaperConfig.ClientPoll, "label"  -> "A small html page that polls the path and reloads once the app answers")
+          Json.obj("value" -> CleverCloudReaperConfig.Hold, "label"        -> "Held until the app is up"),
+          Json.obj("value" -> CleverCloudReaperConfig.Unavailable, "label" -> "503 with a Retry-After header"),
+          Json.obj("value" -> CleverCloudReaperConfig.ClientPoll, "label"  -> "A small html page that polls the path and reloads once the app answers")
         )
       )
     ),
@@ -141,7 +141,7 @@ object CleverReaperPluginSchema {
  * Runs as an access validator, so a request is held before the backend call and its timeouts. Place it
  * after the authentication plugins: an anonymous request then never wakes an app up.
  */
-class CleverReaper extends NgAccessValidator {
+class CleverCloudReaper extends NgAccessValidator {
 
   override def steps: Seq[NgStep]                          = Seq(NgStep.ValidateAccess)
   override def categories: Seq[NgPluginCategory]           = Seq(NgPluginCategory.Custom("Clever Cloud"), NgPluginCategory.TrafficControl)
@@ -151,25 +151,25 @@ class CleverReaper extends NgAccessValidator {
   override def name: String                                = "Cloud APIM - Clever Cloud Reaper"
   override def description: Option[String]                 =
     "Puts the Clever Cloud app behind this route to sleep when it gets no traffic, and wakes it up on the next request. Place it after the authentication plugins".some
-  override def defaultConfigObject: Option[NgPluginConfig] = CleverReaperConfig.default.some
+  override def defaultConfigObject: Option[NgPluginConfig] = CleverCloudReaperConfig.default.some
   override def isAccessAsync: Boolean                      = true
 
   override def noJsForm: Boolean              = true
-  override def configFlow: Seq[String]        = CleverReaperPluginSchema.configFlow
-  override def configSchema: Option[JsObject] = CleverReaperPluginSchema.configSchema.some
+  override def configFlow: Seq[String]        = CleverCloudReaperPluginSchema.configFlow
+  override def configSchema: Option[JsObject] = CleverCloudReaperPluginSchema.configSchema.some
 
   override def access(ctx: NgAccessContext)(using env: Env, ec: ExecutionContext): Future[NgAccess] =
-    env.adminExtensions.extension[CleverReaperExtension] match {
+    env.adminExtensions.extension[CleverCloudReaperExtension] match {
       case None      => NgAccess.NgAllowed.vfuture
       case Some(ext) =>
-        val config = ctx.cachedConfig(internalName)(CleverReaperConfig.format).getOrElse(CleverReaperConfig.default)
+        val config = ctx.cachedConfig(internalName)(CleverCloudReaperConfig.format).getOrElse(CleverCloudReaperConfig.default)
         CleverAppIds.resolve(ctx.route, config) match {
           case None        => NgAccess.NgAllowed.vfuture
           case Some(appId) => handle(ext, appId, config, ctx)
         }
     }
 
-  private def handle(ext: CleverReaperExtension, appId: String, config: CleverReaperConfig, ctx: NgAccessContext)(using
+  private def handle(ext: CleverCloudReaperExtension, appId: String, config: CleverCloudReaperConfig, ctx: NgAccessContext)(using
       env: Env,
       ec: ExecutionContext
   ): Future[NgAccess] = {
@@ -202,9 +202,9 @@ class CleverReaper extends NgAccessValidator {
   }
 
   private def handleRequest(
-      ext: CleverReaperExtension,
+      ext: CleverCloudReaperExtension,
       appId: String,
-      config: CleverReaperConfig,
+      config: CleverCloudReaperConfig,
       ctx: NgAccessContext,
       state: Option[AppState],
       status: Option[ReaperStatus]
@@ -220,7 +220,7 @@ class CleverReaper extends NgAccessValidator {
       case Some(s) if s.asleep               =>
         ext.tracker.touch(appId)
         ext.requestWake(appId)
-        val page = (config.allowWaitingPage && wantsHtml(request)) || config.apiBehavior == CleverReaperConfig.ClientPoll
+        val page = (config.allowWaitingPage && wantsHtml(request)) || config.apiBehavior == CleverCloudReaperConfig.ClientPoll
         if (page) {
           val html = WaitingPage.render(ext.waitingPageTemplate(config), ctx.route.name, appId, state.flatMap(_.name), status)
           NgAccess
@@ -231,7 +231,7 @@ class CleverReaper extends NgAccessValidator {
                 .withHeaders(marker, "Retry-After" -> "30", "Cache-Control" -> "no-store")
             )
             .vfuture
-        } else if (config.apiBehavior == CleverReaperConfig.Unavailable) {
+        } else if (config.apiBehavior == CleverCloudReaperConfig.Unavailable) {
           NgAccess
             .NgDenied(
               Results
@@ -253,7 +253,7 @@ class CleverReaper extends NgAccessValidator {
     (request.method == "GET" || request.method == "HEAD") &&
     request.headers.get("Accept").exists(_.toLowerCase.contains("text/html"))
 
-  private def hold(ext: CleverReaperExtension, appId: String, config: CleverReaperConfig, ctx: NgAccessContext)(using
+  private def hold(ext: CleverCloudReaperExtension, appId: String, config: CleverCloudReaperConfig, ctx: NgAccessContext)(using
       env: Env,
       ec: ExecutionContext
   ): Future[NgAccess] =

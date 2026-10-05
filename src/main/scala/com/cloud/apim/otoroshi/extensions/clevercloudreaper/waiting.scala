@@ -1,4 +1,4 @@
-package com.cloud.apim.otoroshi.extensions.cleverreaper
+package com.cloud.apim.otoroshi.extensions.clevercloudreaper
 
 import play.api.libs.json.*
 
@@ -10,18 +10,18 @@ import play.api.libs.json.*
  *
  * The script polls the very path of the page, so the page reloads once the app really answers it,
  * rather than once clever cloud says the app is up:
- *  - while the app sleeps, the reaper answers the poll itself, and says so with `Clever-Reaper-Status`;
+ *  - while the app sleeps, the reaper answers the poll itself, and says so with `CleverCloud-Reaper-Status`;
  *  - once it is up, the poll goes through to the app: anything but a 5xx, or the 404 clever answers
  *    for an app that does not run, means the app is there.
  */
 object WaitingPage {
 
-  val Header: String       = "Clever-Reaper"
-  // `Clever-Reaper: status` asks for the status as json, whatever the state of the app
+  val Header: String       = "CleverCloud-Reaper"
+  // `CleverCloud-Reaper: status` asks for the status as json, whatever the state of the app
   val StatusValue: String  = "status"
-  // `Clever-Reaper: poll` is the waiting page checking whether the app answers
+  // `CleverCloud-Reaper: poll` is the waiting page checking whether the app answers
   val PollValue: String    = "poll"
-  val MarkerHeader: String = "Clever-Reaper-Status"
+  val MarkerHeader: String = "CleverCloud-Reaper-Status"
 
   val pollIntervalMillis: Long = 5000L
 
@@ -57,10 +57,10 @@ object WaitingPage {
        |  var interval = $pollIntervalMillis;
        |  var labels = { WaitingForShutdown: 'Finishing going to sleep', Down: 'Asleep, wake up requested', WaitingForUp: 'Starting', Up: 'Almost ready', Error: 'Error' };
        |  function show(status) {
-       |    var el = document.getElementById('clever-reaper-status');
+       |    var el = document.getElementById('clevercloud-reaper-status');
        |    if (el) { el.textContent = labels[status] || status; }
-       |    if (status === 'Error') { document.body.classList.add('clever-reaper-error'); }
-       |    else { document.body.classList.remove('clever-reaper-error'); }
+       |    if (status === 'Error') { document.body.classList.add('clevercloud-reaper-error'); }
+       |    else { document.body.classList.remove('clevercloud-reaper-error'); }
        |  }
        |  function check() {
        |    fetch(window.location.href, { method: 'HEAD', headers: { '$Header': '$PollValue', 'Accept': 'application/json' }, credentials: 'include', cache: 'no-store' })

@@ -1,6 +1,6 @@
-package otoroshi_plugins.com.cloud.apim.otoroshi.extensions.cleverreaper
+package otoroshi_plugins.com.cloud.apim.otoroshi.extensions.clevercloudreaper
 
-import com.cloud.apim.otoroshi.extensions.cleverreaper.*
+import com.cloud.apim.otoroshi.extensions.clevercloudreaper.*
 import org.apache.pekko.actor.Cancellable
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Source, StreamConverters}
@@ -19,19 +19,19 @@ import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-object CleverReaperExtension {
-  val extensionId: AdminExtensionId = AdminExtensionId("cloud-apim.extensions.CleverReaper")
-  val pluginId: String              = s"cp:${classOf[CleverReaper].getName}"
-  val boPath: String                = "/extensions/cloud-apim/extensions/clever-reaper"
-  val apiPath: String               = "/api/extensions/cloud-apim/extensions/clever-reaper"
-  val assetsPath: String            = "/extensions/assets/cloud-apim/extensions/clever-reaper"
+object CleverCloudReaperExtension {
+  val extensionId: AdminExtensionId = AdminExtensionId("cloud-apim.extensions.CleverCloudReaper")
+  val pluginId: String              = s"cp:${classOf[CleverCloudReaper].getName}"
+  val boPath: String                = "/extensions/cloud-apim/extensions/clevercloud-reaper"
+  val apiPath: String               = "/api/extensions/cloud-apim/extensions/clevercloud-reaper"
+  val assetsPath: String            = "/extensions/assets/cloud-apim/extensions/clevercloud-reaper"
 }
 
-class CleverReaperExtension(val env: Env) extends AdminExtension {
+class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
 
-  import CleverReaperExtension.*
+  import CleverCloudReaperExtension.*
 
-  private val logger = Logger("cloud-apim-clever-reaper-extension")
+  private val logger = Logger("cloud-apim-clevercloud-reaper-extension")
 
   override def id: AdminExtensionId     = extensionId
   override def name: String             = "Cloud APIM - Clever Cloud Reaper"
@@ -62,7 +62,7 @@ class CleverReaperExtension(val env: Env) extends AdminExtension {
   override def start(): Unit = {
     logger.info("the 'Cloud APIM - Clever Cloud Reaper' extension is enabled !")
     if (!api.configured) logger.warn("no clever cloud api token configured (CLEVER_CLOUD_API_TOKEN): the reaper will not do anything")
-    if (conf.dryRun) logger.warn("the clever reaper runs in dry-run mode: no app will be put to sleep")
+    if (conf.dryRun) logger.warn("the clevercloud reaper runs in dry-run mode: no app will be put to sleep")
     flushTask.set(env.otoroshiScheduler.scheduleWithFixedDelay(conf.accessFlushInterval, conf.accessFlushInterval)(() => flushAccess()))
   }
 
@@ -146,11 +146,11 @@ class CleverReaperExtension(val env: Env) extends AdminExtension {
       .map(stream => StreamConverters.fromInputStream(() => stream).runFold(ByteString.empty)(_ ++ _).awaitf(10.seconds).utf8String)
       .getOrElse(s"'resource $path not found !'")
 
-  lazy val defaultWaitingPage: String = getResourceCode("cloudapim/extensions/cleverreaper/waiting.html")
-  private lazy val pageCode: String   = getResourceCode("cloudapim/extensions/cleverreaper/ReaperPage.js")
-  private lazy val iconCode: String   = getResourceCode("cloudapim/extensions/cleverreaper/icon.svg")
+  lazy val defaultWaitingPage: String = getResourceCode("cloudapim/extensions/clevercloudreaper/waiting.html")
+  private lazy val pageCode: String   = getResourceCode("cloudapim/extensions/clevercloudreaper/ReaperPage.js")
+  private lazy val iconCode: String   = getResourceCode("cloudapim/extensions/clevercloudreaper/icon.svg")
 
-  def waitingPageTemplate(config: CleverReaperConfig): String = config.waitingPage.getOrElse(defaultWaitingPage)
+  def waitingPageTemplate(config: CleverCloudReaperConfig): String = config.waitingPage.getOrElse(defaultWaitingPage)
 
   // clever cloud apps, for the selects of the ui and to guess the app behind a route
 
@@ -234,7 +234,7 @@ class CleverReaperExtension(val env: Env) extends AdminExtension {
        |      title: 'Clever Cloud Reaper',
        |      description: 'Put the Clever Cloud apps without traffic to sleep, wake them up on demand',
        |      absoluteImg: '$assetsPath/icon.svg',
-       |      link: '/extensions/cloud-apim/clever-reaper',
+       |      link: '/extensions/cloud-apim/clevercloud-reaper',
        |      display: () => true,
        |      icon: () => 'fa-moon',
        |    };
@@ -248,14 +248,14 @@ class CleverReaperExtension(val env: Env) extends AdminExtension {
        |      }],
        |      features: [feature],
        |      searchItems: [{
-       |        action: () => { window.location.href = '/bo/dashboard/extensions/cloud-apim/clever-reaper'; },
+       |        action: () => { window.location.href = '/bo/dashboard/extensions/cloud-apim/clevercloud-reaper'; },
        |        env: React.createElement('span', { className: 'fas fa-moon' }, null),
        |        label: 'Clever Cloud Reaper',
-       |        value: 'cleverreaper',
+       |        value: 'clevercloudreaper',
        |      }],
        |      routes: [{
-       |        path: '/extensions/cloud-apim/clever-reaper',
-       |        component: (props) => React.createElement(CleverReaperPage, props, null),
+       |        path: '/extensions/cloud-apim/clevercloud-reaper',
+       |        component: (props) => React.createElement(CleverCloudReaperPage, props, null),
        |      }],
        |    };
        |  });
@@ -428,7 +428,7 @@ class CleverReaperExtension(val env: Env) extends AdminExtension {
 
   private def routeRow(route: NgRoute): JsObject = {
     val instance = route.plugins.slots.find(_.plugin == pluginId)
-    val config   = instance.flatMap(i => CleverReaperConfig.format.reads(i.config.raw).asOpt)
+    val config   = instance.flatMap(i => CleverCloudReaperConfig.format.reads(i.config.raw).asOpt)
     val appId    = config.flatMap(_.appId).orElse(detectApp(route))
     val detected = config.flatMap(_.appId).isEmpty && appId.isDefined
     val domains  = route.frontend.domains.map(_.raw)
@@ -470,7 +470,7 @@ class CleverReaperExtension(val env: Env) extends AdminExtension {
         }
     }
 
-  private def withPlugin(route: NgRoute, enabled: Boolean, config: CleverReaperConfig): NgRoute = {
+  private def withPlugin(route: NgRoute, enabled: Boolean, config: CleverCloudReaperConfig): NgRoute = {
     val raw = config.json.asObject
     if (route.plugins.slots.exists(_.plugin == pluginId)) {
       route.copy(plugins = route.plugins.copy(slots = route.plugins.slots.map { slot =>
@@ -482,16 +482,16 @@ class CleverReaperExtension(val env: Env) extends AdminExtension {
     }
   }
 
-  private def currentConfig(route: NgRoute): CleverReaperConfig =
+  private def currentConfig(route: NgRoute): CleverCloudReaperConfig =
     route.plugins.slots
       .find(_.plugin == pluginId)
-      .flatMap(i => CleverReaperConfig.format.reads(i.config.raw).asOpt)
-      .getOrElse(CleverReaperConfig.default)
+      .flatMap(i => CleverCloudReaperConfig.format.reads(i.config.raw).asOpt)
+      .getOrElse(CleverCloudReaperConfig.default)
 
-  private def mergeConfig(current: CleverReaperConfig, patch: JsValue): CleverReaperConfig =
+  private def mergeConfig(current: CleverCloudReaperConfig, patch: JsValue): CleverCloudReaperConfig =
     patch match {
       case obj: JsObject if obj.value.nonEmpty =>
-        CleverReaperConfig.format.reads(current.json.asObject ++ obj).getOrElse(current)
+        CleverCloudReaperConfig.format.reads(current.json.asObject ++ obj).getOrElse(current)
       case _                                   => current
     }
 
@@ -561,7 +561,7 @@ class CleverReaperExtension(val env: Env) extends AdminExtension {
         )
         store.saveSettings(settings).map { _ =>
           memory.settings = settings
-          logger.info(s"clever reaper kill switch ${if (settings.killSwitch) "on" else "off"} by ${user.email}")
+          logger.info(s"clevercloud reaper kill switch ${if (settings.killSwitch) "on" else "off"} by ${user.email}")
           Results.Ok(settings.json)
         }
       }

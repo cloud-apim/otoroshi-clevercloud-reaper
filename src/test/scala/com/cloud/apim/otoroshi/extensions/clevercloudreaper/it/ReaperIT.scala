@@ -1,8 +1,8 @@
-package com.cloud.apim.otoroshi.extensions.cleverreaper.it
+package com.cloud.apim.otoroshi.extensions.clevercloudreaper.it
 
 import org.apache.pekko.actor.ActorSystem
 import otoroshi.next.models.{NgPluginInstance, NgPluginInstanceConfig}
-import otoroshi_plugins.com.cloud.apim.otoroshi.extensions.cleverreaper.CleverReaper
+import otoroshi_plugins.com.cloud.apim.otoroshi.extensions.clevercloudreaper.CleverCloudReaper
 import play.api.libs.json.{JsArray, JsObject, Json}
 import play.api.libs.ws.DefaultBodyWritables.writeableOf_String
 
@@ -30,7 +30,7 @@ class ReaperIT extends munit.FunSuite {
     clever.backendPort,
     Seq(
       NgPluginInstance(
-        plugin = s"cp:${classOf[CleverReaper].getName}",
+        plugin = s"cp:${classOf[CleverCloudReaper].getName}",
         config = NgPluginInstanceConfig(
           Json.obj(
             "app_id"             -> appId,
@@ -58,7 +58,7 @@ class ReaperIT extends munit.FunSuite {
   }
 
   private def appState(): Option[JsObject] = {
-    val res = gateway.await(gateway.admin(s"/api/extensions/cloud-apim/extensions/clever-reaper/apps/$appId").get())
+    val res = gateway.await(gateway.admin(s"/api/extensions/cloud-apim/extensions/clevercloud-reaper/apps/$appId").get())
     if (res.status == 200) Some(res.json.as[JsObject]) else None
   }
 
@@ -113,11 +113,11 @@ class ReaperIT extends munit.FunSuite {
     val page = gateway.call(route, "/", Seq("Accept" -> "text/html,application/xhtml+xml"))
     assertEquals(page.status, 503)
     assert(page.body.contains("reaped is waking up"), page.body)
-    assert(page.body.contains("'Clever-Reaper': 'poll'"), "the polling script is missing")
+    assert(page.body.contains("'CleverCloud-Reaper': 'poll'"), "the polling script is missing")
     // the state when the request came in: the wake up it asked for runs on its own
-    assert(page.header("Clever-Reaper-Status").exists(Set("Down", "WaitingForUp").contains), page.header("Clever-Reaper-Status").toString)
+    assert(page.header("CleverCloud-Reaper-Status").exists(Set("Down", "WaitingForUp").contains), page.header("CleverCloud-Reaper-Status").toString)
     eventually("the status poll to say up") {
-      val poll = gateway.call(route, "/", Seq("Clever-Reaper" -> "status"))
+      val poll = gateway.call(route, "/", Seq("CleverCloud-Reaper" -> "status"))
       (poll.json \ "status").asOpt[String].contains("Up")
     }
     assertEquals(gateway.call(route, "/", Seq("Accept" -> "text/html")).status, 200)
@@ -127,10 +127,10 @@ class ReaperIT extends munit.FunSuite {
     eventually("the app to be up")(status().contains("Up"))
     // traffic keeps it awake while the manual reap is asked
     gateway.call(route)
-    val reaped = gateway.await(gateway.admin(s"/api/extensions/cloud-apim/extensions/clever-reaper/apps/$appId/_reap").post(""))
+    val reaped = gateway.await(gateway.admin(s"/api/extensions/cloud-apim/extensions/clevercloud-reaper/apps/$appId/_reap").post(""))
     assertEquals(reaped.status, 200, reaped.body)
     eventually("the app to sleep")(status().contains("Down"))
-    val history = gateway.await(gateway.admin(s"/api/extensions/cloud-apim/extensions/clever-reaper/apps/$appId/history?page_size=100").get())
+    val history = gateway.await(gateway.admin(s"/api/extensions/cloud-apim/extensions/clevercloud-reaper/apps/$appId/history?page_size=100").get())
     assertEquals(history.status, 200)
     val items   = history.json.as[JsArray].value
     assert(items.exists(t => (t \ "cause").asOpt[String].exists(_.contains("put to sleep by"))), history.body)
@@ -144,7 +144,7 @@ class ReaperIT extends munit.FunSuite {
       clever.backendPort,
       Seq(
         NgPluginInstance(
-          plugin = s"cp:${classOf[CleverReaper].getName}",
+          plugin = s"cp:${classOf[CleverCloudReaper].getName}",
           config = NgPluginInstanceConfig(
             Json.obj("app_id" -> appId, "grace_period" -> 3, "fail_timeout" -> 30, "ready_delay" -> 0, "api_behavior" -> "client_poll")
           )
@@ -157,15 +157,15 @@ class ReaperIT extends munit.FunSuite {
     assertEquals(page.status, 503)
     assert(page.header("Content-Type").exists(_.startsWith("text/html")), page.header("Content-Type").toString)
     assert(page.body.contains("polled is waking up"), page.body)
-    assert(page.body.contains("'Clever-Reaper': 'poll'"), "the polling script is missing")
+    assert(page.body.contains("'CleverCloud-Reaper': 'poll'"), "the polling script is missing")
     // while the app wakes up, the poll is answered by the reaper, and says so
-    val asleep = gateway.head(polling, "/api/things", Seq("Clever-Reaper" -> "poll"))
+    val asleep = gateway.head(polling, "/api/things", Seq("CleverCloud-Reaper" -> "poll"))
     assertEquals(asleep.status, 503)
-    assert(asleep.header("Clever-Reaper-Status").isDefined)
+    assert(asleep.header("CleverCloud-Reaper-Status").isDefined)
     // once the app is up, the poll reaches it: that is when the page reloads
     eventually("the poll to reach the app") {
-      val poll = gateway.head(polling, "/api/things", Seq("Clever-Reaper" -> "poll"))
-      poll.header("Clever-Reaper-Status").isEmpty && poll.status == 200
+      val poll = gateway.head(polling, "/api/things", Seq("CleverCloud-Reaper" -> "poll"))
+      poll.header("CleverCloud-Reaper-Status").isEmpty && poll.status == 200
     }
     assertEquals(status(), Some("Up"))
   }
