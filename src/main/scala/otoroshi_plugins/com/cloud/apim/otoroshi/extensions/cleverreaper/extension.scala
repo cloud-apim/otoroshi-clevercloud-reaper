@@ -400,7 +400,7 @@ class CleverReaperExtension(val env: Env) extends AdminExtension {
     val reaper   = req.getQueryString("reaper").map(_.trim.toLowerCase).getOrElse("all")
     val status   = req.getQueryString("status").flatMap(ReaperStatus.parse)
     val page     = req.getQueryString("page").flatMap(_.toIntOption).filter(_ > 0).getOrElse(1)
-    val pageSize = req.getQueryString("page_size").flatMap(_.toIntOption).filter(_ > 0).map(Math.min(_, 500)).getOrElse(50)
+    val pageSize = req.getQueryString("page_size").flatMap(_.toIntOption).filter(_ > 0).map(Math.min(_, 500)).getOrElse(15)
     // refreshed in the background: the vhosts make the guesses better, the list does not wait for them
     if (api.configured && System.currentTimeMillis() - cleverAppsCache.get()._1 > 60000L) cleverApps()
     val rows     = env.proxyState

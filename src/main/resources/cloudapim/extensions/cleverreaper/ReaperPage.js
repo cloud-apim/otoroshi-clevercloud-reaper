@@ -17,10 +17,21 @@ function reaperEnsureStyles() {
     '.reaper-btn:hover:not(:disabled) { background: var(--reaper-accent); color: var(--bg-color_level2); }',
     '.reaper-btn:disabled { opacity: 0.35; cursor: not-allowed; }',
     '.reaper-meta { opacity: 0.65; font-size: 12px; overflow-wrap: anywhere; }',
-    '.reaper-table { width: 100%; border-collapse: collapse; }',
-    '.reaper-table th { text-align: left; font-weight: 600; font-size: 12px; opacity: 0.7; padding: 6px 8px; border-bottom: 1px solid var(--border-color); }',
-    '.reaper-table td { padding: 8px; border-bottom: 1px solid var(--border-color); vertical-align: top; }',
+    // the look of otoroshi's own tables (react-table): one line per row, uppercase muted headers
+    '.reaper-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 0.875rem; }',
+    '.reaper-table th { color: var(--text-muted); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;',
+    '  text-align: left; white-space: nowrap; padding: 8px 12px; border-bottom: 1px solid var(--border-color); }',
+    '.reaper-table td { height: 44px; padding: 0 12px; border-bottom: 1px solid var(--border-color); vertical-align: middle;',
+    '  color: var(--color_level1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+    '.reaper-table tbody tr:hover > td { background: var(--hover-bg); }',
     '.reaper-table tr.reaper-expanded > td { background: var(--bg-color_level3); }',
+    '.reaper-table tr.reaper-panel-row > td { height: auto; padding: 16px 12px; white-space: normal; overflow: visible; }',
+    '.reaper-table .reaper-sub { color: var(--text-muted); margin-left: 8px; font-size: 0.8125rem; }',
+    '.reaper-pager { position: relative; }',
+    '.reaper-pager .reaper-page-size { position: absolute; left: 0; top: 0; bottom: 0; display: flex; align-items: center; gap: 8px; }',
+    '.reaper-pager .reaper-page-size select { width: auto; color: var(--color_level1); background: var(--bg-color_level2);',
+    '  border: 1px solid var(--input-border); border-radius: 6px; padding: 2px 6px; }',
+    '.reaper-pager .-pageJump input { width: 60px; text-align: center; }',
     '.reaper-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }',
     '.reaper-filters input, .reaper-filters select { max-width: 280px; }',
     '.reaper-form { display: grid; grid-template-columns: 220px 1fr; gap: 8px 16px; align-items: center; max-width: 900px; }',
@@ -273,13 +284,43 @@ class CleverReaperHistory extends Component {
   }
 }
 
+const REAPER_PAGE_SIZES = [5, 15, 20, 50, 100];
+
+const REAPER_COLUMNS = [
+  { title: 'Name', width: '15%' },
+  { title: 'Frontend', width: '17%' },
+  { title: 'Backend', width: '15%' },
+  { title: 'Clever Cloud app', width: '15%' },
+  { title: 'Reaper', width: '70px' },
+  { title: 'Status', width: '130px' },
+  { title: 'Last access', width: '100px' },
+  { title: 'Goes to sleep', width: '110px' },
+  { title: '', width: '130px' },
+];
+
+// remembered per viewer, like a filter: nothing breaks when the storage is not there
+function reaperStoredPageSize() {
+  try {
+    const value = parseInt(window.localStorage.getItem('clever-reaper-page-size'), 10);
+    return REAPER_PAGE_SIZES.indexOf(value) > -1 ? value : 15;
+  } catch (e) {
+    return 15;
+  }
+}
+
+function reaperStorePageSize(value) {
+  try {
+    window.localStorage.setItem('clever-reaper-page-size', String(value));
+  } catch (e) {}
+}
+
 class CleverReaperPage extends Component {
   state = {
     overview: null,
     rows: [],
     total: 0,
     page: 1,
-    pageSize: 50,
+    pageSize: reaperStoredPageSize(),
     search: '',
     reaper: 'all',
     status: '',
@@ -490,20 +531,19 @@ class CleverReaperPage extends Component {
     const busy = !!this.state.busy[row.id];
     const managed = row.reaper.enabled && !!state.status;
     const next = status === 'Up' && state.reap_at ? state.reap_at - Date.now() : null;
+    const domains = row.domains || [];
+    const targets = (row.targets || []).map((t) => t.replace(/^https?:\/\//, ''));
+    const more = (list) => (list.length > 1 ? ' +' + (list.length - 1) : '');
     const cells = [
-      h('td', { key: 'route' },
+      h('td', { key: 'name', title: row.name },
         h('a', { href: '/bo/dashboard/routes/' + row.id + '?tab=flow' }, row.name),
-        row.enabled ? null : reaperBadge('off', 'route disabled', 'neutral'),
-        h('div', { className: 'reaper-meta' }, (row.domains || []).join(', ')),
-        h('div', { className: 'reaper-meta' }, (row.targets || []).join(', '))
+        row.enabled ? null : h('span', { className: 'reaper-sub' }, '(disabled)')
       ),
-      h('td', { key: 'app' },
-        row.reaper.app_id
-          ? h('div', null,
-              h('span', null, state.name || row.reaper.app_id),
-              row.reaper.detected && !row.reaper.enabled ? reaperBadge('det', 'guessed', 'info', 'guessed from the targets of the route') : null,
-              h('div', { className: 'reaper-meta' }, row.reaper.app_id))
-          : h('span', { className: 'reaper-meta', title: 'no clever cloud app could be guessed from the targets of this route' }, '-')
+      h('td', { key: 'frontend', title: domains.join('\n') }, (domains[0] || '-') + more(domains)),
+      h('td', { key: 'backend', title: targets.join('\n') }, (targets[0] || '-') + more(targets)),
+      h('td', { key: 'app', title: row.reaper.app_id || 'no clever cloud app could be guessed from the targets of this route' },
+        row.reaper.app_id ? state.name || row.reaper.app_id : h('span', { className: 'reaper-meta' }, '-'),
+        row.reaper.app_id && row.reaper.detected && !row.reaper.enabled ? h('span', { className: 'reaper-sub' }, '(guessed)') : null
       ),
       h('td', { key: 'toggle' },
         h('i', {
@@ -513,14 +553,13 @@ class CleverReaperPage extends Component {
           onClick: () => !busy && this.toggle(row),
         })
       ),
-      h('td', { key: 'status' },
-        status ? reaperBadge('s', REAPER_LABELS[status] || status, REAPER_TONES[status], state.cause) : h('span', { className: 'reaper-meta' }, row.reaper.enabled ? 'pending' : '-'),
-        status === 'Error' && state.error_cause ? h('div', { className: 'reaper-meta', style: { color: 'var(--color-red)' } }, state.error_cause) : null,
-        status && status !== 'Error' && state.cause ? h('div', { className: 'reaper-meta' }, state.cause) : null
+      h('td', { key: 'status', title: status === 'Error' ? state.error_cause : state.cause },
+        status ? reaperBadge('s', REAPER_LABELS[status] || status, REAPER_TONES[status]) : h('span', { className: 'reaper-meta' }, row.reaper.enabled ? 'pending' : '-'),
+        status === 'Error' ? h('i', { className: 'fas fa-circle-exclamation', style: { color: 'var(--color-red)' } }) : null
       ),
-      h('td', { key: 'access' }, managed ? reaperAgo(state.last_access) : '-'),
+      h('td', { key: 'access', title: managed ? reaperDate(state.last_access) : null }, managed ? reaperAgo(state.last_access) : '-'),
       h('td', { key: 'next' }, next === null ? '-' : next <= 0 ? 'any moment' : 'in ' + reaperDuration(next)),
-      h('td', { key: 'actions', style: { whiteSpace: 'nowrap' } },
+      h('td', { key: 'actions', style: { textOverflow: 'clip' } },
         managed && status === 'Up'
           ? h('button', { type: 'button', className: 'reaper-btn reaper-info', disabled: busy, title: 'put the app to sleep now',
               onClick: () => this.appAction(row, '_reap', 'The app is going to sleep', 'Put the app of "' + row.name + '" to sleep now?') }, h('i', { className: 'fas fa-moon' }))
@@ -558,20 +597,64 @@ class CleverReaperPage extends Component {
           onSave: (config) => this.saveConfig(row, config),
           onCancel: () => this.setState({ expanded: null, panel: null }),
         });
-      rows.push(h('tr', { key: row.id + '-panel', className: 'reaper-expanded' }, h('td', { colSpan: 7 }, content)));
+      rows.push(h('tr', { key: row.id + '-panel', className: 'reaper-expanded reaper-panel-row' }, h('td', { colSpan: REAPER_COLUMNS.length }, content)));
     }
     return rows;
   }
 
+  goToPage = (page) => {
+    const pages = Math.max(1, Math.ceil(this.state.total / this.state.pageSize));
+    const target = Math.min(Math.max(1, page), pages);
+    if (target !== this.state.page) this.setState({ page: target, expanded: null, panel: null }, () => this.refresh());
+  };
+
+  // the markup of otoroshi's own tables, so their stylesheet paints it
   renderPagination() {
     const h = React.createElement;
     const pages = Math.max(1, Math.ceil(this.state.total / this.state.pageSize));
-    if (pages <= 1) return null;
-    const go = (page) => this.setState({ page: page }, () => this.refresh());
-    return h('div', { style: { marginTop: 8 } },
-      h('button', { type: 'button', className: 'reaper-btn reaper-neutral', disabled: this.state.page <= 1, onClick: () => go(this.state.page - 1) }, 'previous'),
-      h('span', { className: 'reaper-meta', style: { margin: '0 8px' } }, 'page ' + this.state.page + ' / ' + pages),
-      h('button', { type: 'button', className: 'reaper-btn reaper-neutral', disabled: this.state.page >= pages, onClick: () => go(this.state.page + 1) }, 'next')
+    return h('div', { className: 'ReactTable reaper-pager' },
+      h('div', { className: 'pagination-bottom' },
+        h('div', { className: '-pagination' },
+          h('div', { className: '-previous' },
+            h('button', { type: 'button', className: '-btn', disabled: this.state.page <= 1, onClick: () => this.goToPage(this.state.page - 1) }, 'Previous')
+          ),
+          h('div', { className: '-center' },
+            h('span', { className: '-pageInfo' },
+              'Page ',
+              h('div', { className: '-pageJump', style: { display: 'inline-block' } },
+                h('input', {
+                  'aria-label': 'jump to page',
+                  type: 'number',
+                  min: 1,
+                  max: pages,
+                  value: this.state.page,
+                  onChange: (e) => {
+                    const value = parseInt(e.target.value, 10);
+                    if (!isNaN(value)) this.goToPage(value);
+                  },
+                })
+              ),
+              ' of ',
+              h('span', { className: '-totalPages' }, pages)
+            )
+          ),
+          h('div', { className: '-next' },
+            h('button', { type: 'button', className: '-btn', disabled: this.state.page >= pages, onClick: () => this.goToPage(this.state.page + 1) }, 'Next')
+          )
+        )
+      ),
+      h('div', { className: 'reaper-page-size' },
+        h('span', null, 'Rows per page'),
+        h('select', {
+          'aria-label': 'rows per page',
+          value: this.state.pageSize,
+          onChange: (e) => {
+            const pageSize = parseInt(e.target.value, 10);
+            reaperStorePageSize(pageSize);
+            this.setState({ pageSize: pageSize, page: 1, expanded: null, panel: null }, () => this.refresh());
+          },
+        }, REAPER_PAGE_SIZES.map((size) => h('option', { key: size, value: size }, size)))
+      )
     );
   }
 
@@ -583,15 +666,8 @@ class CleverReaperPage extends Component {
       h('div', { className: 'reaper-panel' },
         this.renderFilters(),
         h('table', { className: 'reaper-table' },
-          h('thead', null, h('tr', null,
-            h('th', null, 'Route'),
-            h('th', null, 'Clever Cloud app'),
-            h('th', null, 'Reaper'),
-            h('th', null, 'Status'),
-            h('th', null, 'Last access'),
-            h('th', null, 'Goes to sleep'),
-            h('th', null, '')
-          )),
+          h('colgroup', null, REAPER_COLUMNS.map((c) => h('col', { key: c.title || 'actions', style: { width: c.width } }))),
+          h('thead', null, h('tr', null, REAPER_COLUMNS.map((c) => h('th', { key: c.title || 'actions' }, c.title)))),
           h('tbody', null, this.state.rows.map((row) => this.renderRow(row)))
         ),
         !this.state.loading && this.state.rows.length === 0 ? h('div', { className: 'reaper-meta', style: { padding: 12 } }, 'No route matches.') : null,
