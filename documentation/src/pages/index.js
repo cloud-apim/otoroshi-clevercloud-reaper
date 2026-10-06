@@ -130,20 +130,37 @@ function Showreel() {
     if (!v) return undefined;
     // react does not always render the muted attribute, and a browser only autoplays a muted video
     v.muted = true;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      v.controls = true;
-      return undefined;
-    }
-    // it plays while it is on screen, and only loads once it gets there
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+    // it plays while it is on screen, and only loads once it gets there. A pause from the controls is
+    // the visitor's: coming back to the video does not start it again
+    let ours = false;
+    let paused = false;
+    const onPause = () => {
+      if (!ours) paused = true;
+      ours = false;
+    };
+    const onPlay = () => {
+      paused = false;
+    };
+    v.addEventListener('pause', onPause);
+    v.addEventListener('play', onPlay);
     const io = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) v.play().catch(() => {});
-        else v.pause();
+        if (entry.isIntersecting) {
+          if (!paused) v.play().catch(() => {});
+        } else if (!v.paused) {
+          ours = true;
+          v.pause();
+        }
       },
       { threshold: 0.2 },
     );
     io.observe(v);
-    return () => io.disconnect();
+    return () => {
+      io.disconnect();
+      v.removeEventListener('pause', onPause);
+      v.removeEventListener('play', onPlay);
+    };
   }, []);
   return (
     <section className={styles.showreel}>
@@ -152,6 +169,7 @@ function Showreel() {
           <video
             ref={video}
             className={styles.showreelVideo}
+            controls
             muted
             loop
             playsInline
