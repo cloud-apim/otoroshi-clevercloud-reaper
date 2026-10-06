@@ -21,6 +21,17 @@ the [quickstart](https://cloud-apim.github.io/otoroshi-clevercloud-reaper/docs/q
 
 ![The routes, with the state of their app](documentation/static/img/screenshots/reaper-routes.png)
 
+## Otoroshi and Clever Cloud
+
+Otoroshi has been deployed on [Clever Cloud](https://www.clever.cloud) since its very first day, and
+Clever Cloud now runs it as a managed service,
+[Otoroshi with LLM](https://www.clever.cloud/developers/doc/deploy/services/otoroshi/). A gateway that
+already routes every request of Clever Cloud apps is the natural place to notice the ones nobody
+uses, and to wake them up when someone does. The reaper uses the
+[Clever Cloud API](https://www.clever.cloud/developers/api/) with an API token from
+[clever-tools](https://github.com/CleverCloud/clever-tools), and counts savings with the
+[Clever Cloud prices](https://www.clever.cloud/pricing/).
+
 ## Features
 
 ### Per route

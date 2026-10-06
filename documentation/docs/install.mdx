@@ -19,8 +19,8 @@ The reaper needs nothing else: it keeps its state in the Otoroshi datastore, wha
 
 ## Create a Clever Cloud API token
 
-The reaper talks to the Clever Cloud API with an **API token**, sent as a `Bearer` token to the
-**API bridge** (`https://api-bridge.clever-cloud.com`). Create one with
+The reaper talks to the [Clever Cloud API](https://www.clever.cloud/developers/api/) with an **API
+token**, sent as a `Bearer` token to the **API bridge** (`https://api-bridge.clever-cloud.com`). Create one with
 [clever-tools](https://github.com/CleverCloud/clever-tools):
 
 ```bash
@@ -110,7 +110,10 @@ docker run \
 
 ### On Clever Cloud
 
-Otoroshi runs fine on Clever Cloud itself, as a Java app or a Docker app. Set
+Otoroshi runs on Clever Cloud since its very first day: deploy it as a Java or Docker app (the
+[Otoroshi manual](https://maif.github.io/otoroshi/manual/docs/deploy/clever-cloud) shows how), or use
+the managed [Otoroshi with LLM](https://www.clever.cloud/developers/doc/deploy/services/otoroshi/)
+service of Clever Cloud. Set
 `CLEVER_CLOUD_API_TOKEN` in its environment variables, and **do not put the Otoroshi app under the
 reaper**: nothing would be left to wake it up.
 

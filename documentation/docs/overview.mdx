@@ -11,7 +11,7 @@ The Clever Cloud Reaper is an [Otoroshi](https://www.otoroshi.io/) admin extensi
 request**.
 
 Staging, demo, preview and internal apps spend most of their life waiting for someone. On Clever
-Cloud an app that runs costs money whether it serves a request or not. The reaper watches the
+Cloud an app that runs [costs money](https://www.clever.cloud/pricing/) whether it serves a request or not. The reaper watches the
 traffic Otoroshi already routes to those apps. When an app has had no traffic for its **grace
 period**, the reaper stops its instances. The next request starts them again, and while the app
 boots the caller either waits, gets a page that reloads by itself, or gets a clean `503`.
@@ -34,6 +34,17 @@ sequenceDiagram
     O->>A: the request, or the page reloads
     A-->>C: 200
 ```
+
+## Otoroshi and Clever Cloud
+
+Otoroshi has been deployed on [Clever Cloud](https://www.clever.cloud) since its very first day, and
+Clever Cloud now runs it as a managed service,
+[Otoroshi with LLM](https://www.clever.cloud/developers/doc/deploy/services/otoroshi/). Many Otoroshi
+installs sit in front of Clever Cloud apps, and the
+[Otoroshi manual](https://maif.github.io/otoroshi/manual/docs/deploy/clever-cloud) shows how to deploy
+it there. A gateway that already routes every request of those apps is the natural place to notice
+the ones nobody uses, and to wake them up when someone does: a reaper for Clever Cloud apps, built
+into Otoroshi, is where that long story leads.
 
 ## Why in the gateway
 

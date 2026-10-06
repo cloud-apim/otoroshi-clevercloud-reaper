@@ -10,7 +10,8 @@ This takes an app you already run on Clever Cloud, puts it behind a local Otoros
 reaper put it to sleep after **two minutes** without traffic. Then a browser wakes it up.
 
 You need Java 17 or later, [clever-tools](https://github.com/CleverCloud/clever-tools) 3.12 or
-later, and a Clever Cloud app you can afford to stop for a few minutes.
+later, and an app on [Clever Cloud](https://www.clever.cloud) you can afford to stop for a few
+minutes.
 
 :::caution Use an app you can stop
 The reaper really stops the instances of the app. Pick a staging or demo app, not production.
@@ -64,7 +65,8 @@ Create a route (**Routes → Create new route**) with:
 
 - **Frontend**: the domain `my-app.oto.tools`.
 - **Backend**: one target, `app-<uuid>.cleverapps.io` on port `443` with TLS. That is the default
-  domain of the app, shown on its **Domain names** page in the Clever Cloud console.
+  domain of the app, shown on its **Domain names** page in the
+  [Clever Cloud console](https://console.clever-cloud.com/).
 - The **Override host header** plugin, so Clever Cloud gets the `Host` it routes on. Without it,
   Clever Cloud answers `404` whatever the reaper does.
 

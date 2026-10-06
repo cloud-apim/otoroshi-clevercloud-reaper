@@ -101,8 +101,9 @@ function Hero() {
           </Heading>
           <p className={styles.heroSubtitle}>
             Staging, demo and preview apps spend their nights and weekends waiting for someone. The
-            Clever Cloud Reaper stops them when they get no traffic, and wakes them up on the next
-            request, right from the Otoroshi routes that serve them.
+            Clever Cloud Reaper stops your <a className={styles.heroLink} href="https://www.clever.cloud">Clever Cloud</a>{' '}
+            apps when they get no traffic, and wakes them up on the next request, right from the{' '}
+            <a className={styles.heroLink} href="https://www.otoroshi.io">Otoroshi</a> routes that serve them.
           </p>
           <div className={styles.heroButtons}>
             <Link className={styles.buttonPrimary} to="/docs/overview">
@@ -176,9 +177,59 @@ function Screens() {
   );
 }
 
-function Capabilities() {
+function CleverCloud() {
   return (
     <section className={styles.section}>
+      <div className="container">
+        <div className={styles.sectionTag}>Otoroshi × Clever Cloud</div>
+        <Heading as="h2" className={styles.sectionTitle}>
+          On Clever Cloud since day one
+        </Heading>
+        <div className={styles.cleverLayout}>
+          <div>
+            <p className={styles.cleverText}>
+              Otoroshi has been deployed on <a href="https://www.clever.cloud">Clever Cloud</a> since
+              its very first day, and Clever Cloud now runs it as a managed service,{' '}
+              <a href="https://www.clever.cloud/developers/doc/deploy/services/otoroshi/">Otoroshi with LLM</a>.
+              An Otoroshi in front of Clever Cloud apps is a common setup: it already sees every
+              request those apps get, so it is the natural place to notice the ones nobody uses, and
+              to wake them up when someone does.
+            </p>
+            <p className={styles.cleverText}>
+              The reaper talks to the Clever Cloud API with an{' '}
+              <a href="https://github.com/CleverCloud/clever-tools">API token</a>, counts what sleeping
+              saved with the <a href="https://www.clever.cloud/pricing/">Clever Cloud prices</a> of each
+              zone, and links every app to its page in the{' '}
+              <a href="https://console.clever-cloud.com/">Clever Cloud console</a>.
+            </p>
+          </div>
+          <div className={styles.cleverLinks}>
+            <a className={styles.cleverLink} href="https://www.clever.cloud">
+              <strong>Clever Cloud</strong>
+              <span>The platform the reaper puts to sleep and wakes up</span>
+            </a>
+            <a className={styles.cleverLink} href="https://www.clever.cloud/developers/doc/deploy/services/otoroshi/">
+              <strong>Otoroshi with LLM</strong>
+              <span>Otoroshi, managed by Clever Cloud</span>
+            </a>
+            <a className={styles.cleverLink} href="https://maif.github.io/otoroshi/manual/docs/deploy/clever-cloud">
+              <strong>Deploy Otoroshi on Clever Cloud</strong>
+              <span>The Otoroshi manual, step by step</span>
+            </a>
+            <a className={styles.cleverLink} href="https://www.clever.cloud/developers/doc/">
+              <strong>Clever Cloud documentation</strong>
+              <span>Apps, add-ons, the CLI and the API</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Capabilities() {
+  return (
+    <section className={`${styles.section} ${styles.sectionAlt}`}>
       <div className="container">
         <div className={styles.sectionTag}>Capabilities</div>
         <Heading as="h2" className={styles.sectionTitle}>
@@ -200,7 +251,7 @@ function Capabilities() {
 
 function Start() {
   return (
-    <section className={`${styles.section} ${styles.sectionAlt}`}>
+    <section className={styles.section}>
       <div className="container">
         <div className={styles.sectionTag}>Get going</div>
         <Heading as="h2" className={styles.sectionTitle}>
@@ -228,6 +279,7 @@ export default function Home() {
       <main>
         <Steps />
         <Screens />
+        <CleverCloud />
         <Capabilities />
         <Start />
       </main>
