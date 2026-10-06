@@ -15,3 +15,7 @@ GitHub Pages as an artifact.
 
 The screenshots in `static/img/screenshots` come from a real Otoroshi:
 [`screenshots/`](./screenshots) holds the Playwright script that takes them.
+
+The video that loops on the landing page (`static/video`) is a motion design drawn in a browser:
+[`motion/`](./motion) holds the page, the renderer that turns it into a video frame by frame, and the
+script that encodes it for the web (`node render.mjs && node web.mjs`).

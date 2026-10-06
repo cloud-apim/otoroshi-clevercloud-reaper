@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
@@ -119,6 +120,50 @@ function Hero() {
         </div>
       </div>
     </header>
+  );
+}
+
+function Showreel() {
+  const video = useRef(null);
+  useEffect(() => {
+    const v = video.current;
+    if (!v) return undefined;
+    // react does not always render the muted attribute, and a browser only autoplays a muted video
+    v.muted = true;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      v.controls = true;
+      return undefined;
+    }
+    // it plays while it is on screen, and only loads once it gets there
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) v.play().catch(() => {});
+        else v.pause();
+      },
+      { threshold: 0.2 },
+    );
+    io.observe(v);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <section className={styles.showreel}>
+      <div className="container">
+        <div className={styles.showreelFrame}>
+          <video
+            ref={video}
+            className={styles.showreelVideo}
+            muted
+            loop
+            playsInline
+            preload="none"
+            poster={useBaseUrl('/video/reaper-loop-poster.jpg')}
+            aria-label="The Clever Cloud Reaper in one minute: idle apps burning money all week, the reaper putting them to sleep, a request waking one up, and what it saved.">
+            <source src={useBaseUrl('/video/reaper-loop.webm')} type='video/webm; codecs="av01.0.08M.08"' />
+            <source src={useBaseUrl('/video/reaper-loop.mp4')} type="video/mp4" />
+          </video>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -276,6 +321,7 @@ export default function Home() {
       title="Put the Clever Cloud apps nobody uses to sleep"
       description="An Otoroshi extension that stops the Clever Cloud apps without traffic and wakes them up on the next request, with a waiting page, held requests, must-be-up hours and a console in the Otoroshi backoffice.">
       <Hero />
+      <Showreel />
       <main>
         <Steps />
         <Screens />

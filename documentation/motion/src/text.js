@@ -1,0 +1,111 @@
+// Every word on screen.
+//
+// What the film says of the reaper is what it does (see the README): the states and their labels in the console,
+// the words of the waiting page, the default grace period (one hour), the clever cloud calls, the poll every five
+// seconds, the 503 with a Retry-After of 30 seconds, the savings and how they are counted with the public prices of
+// clever cloud. The apps, the domains, the traffic and the amounts are made up, with the real prices of the
+// flavors in the par zone.
+
+export const TEXT = {
+  gateway: 'your gateway',
+  status: {
+    up: 'Up',
+    going: 'Going to sleep',
+    asleep: 'Asleep',
+    waking: 'Waking up',
+  },
+  hook: {
+    clock: 'A week of 24 staging apps, replayed',
+    days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    title: ['Your apps run 24/7.', 'Your users don’t.'],
+    counter: 'billed while nobody used them',
+    apps: 'apps',
+    billed: 'hours billed',
+    idle: 'of the time idle',
+  },
+  title: {
+    sub: ['Idle Clever Cloud apps go to sleep.', 'The next request wakes them up.'],
+    ext: 'An Otoroshi extension',
+    by: 'by',
+  },
+  reap: {
+    eyebrow: '01 · It reaps',
+    title: ['No traffic for an hour?', 'Lights out.'],
+    last: 'Last request',
+    ago: 'ago',
+    grace: 'Grace period',
+    hour: '1 hour',
+    checks: ['No traffic for its grace period', 'Outside its must-be-up hours', 'Last deployment OK'],
+    call: 'instances stopped',
+    cost: 'Cost now',
+    perHour: '/h',
+    fleet: 'The fleet',
+    asleep: 'asleep',
+    up: 'with traffic',
+  },
+  wake: {
+    eyebrow: '02 · It wakes',
+    title: ['The next request', 'wakes it up.'],
+    url: 'shop-staging.acme.com',
+    page: {
+      title: 'shop-staging is waking up',
+      p1: 'This application was put to sleep after a period of inactivity. It is starting again, which usually takes a minute or two.',
+      p2: 'This page reloads by itself as soon as the application is ready.',
+      status: ['Asleep, wake up requested', 'Starting', 'Almost ready'],
+    },
+    app: { brand: 'ACME Shop', env: 'staging', nav: ['Catalog', 'Orders', 'Customers'], hello: 'Good morning, Léa' },
+    poll: 'polls every 5 s',
+    held: 'held',
+    or: 'or a 503 at once, with Retry-After: 30',
+    woke: 'up in',
+  },
+  awake: {
+    eyebrow: '03 · Stays awake when it should',
+    title: ['Up when people work.', 'Asleep when they don’t.'],
+    days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    lanes: [
+      { name: 'shop-staging', note: 'must be up Mon–Fri, 08:30–19:00' },
+      { name: 'partner-portal-demo', note: 'must be up Wed 13:30–15:00, for a demo' },
+      { name: 'docs-preview', note: 'only when someone opens it' },
+    ],
+    range: 'must-be-up range',
+    asleep: 'asleep',
+    up: 'up',
+    request: 'a request',
+    uptime: 'Uptime checks every minute: answered 200, never counted as traffic',
+    of: 'of the week asleep',
+  },
+  savings: {
+    eyebrow: '04 · Savings',
+    title: ['Every sleep,', 'counted in euros.'],
+    tiles: ['Saved today', 'This month', 'This year', 'In all'],
+    now: 'Saving right now',
+    nowHint: 'apps asleep',
+    days: 'Last 30 days',
+    formula: ['hours asleep', 'min instances', 'hourly price of its flavor'],
+    prices: 'Public Clever Cloud prices, per zone · stored, never recomputed',
+  },
+  features: {
+    title: ['Built into', 'your gateway.'],
+    sub: 'No agent, no sidecar, no database: one plugin on your Otoroshi routes.',
+    tiles: [
+      ['table', 'A console in the backoffice', 'Every route, its app, its state, its history'],
+      ['cluster', 'Cluster-aware', 'One job, a lock per app: never started twice'],
+      ['wand', 'Finds the app for you', 'From the domains of the route, cleverapps.io included'],
+      ['page', 'Your own waiting page', 'Bring your html, the reaper adds the polling'],
+      ['hourglass', 'Held requests or 503', 'APIs wait for the app, or retry later'],
+      ['calendar', 'Must-be-up hours', 'Started before people arrive'],
+      ['activity', 'Monitoring filters', 'Uptime checks neither wake it nor keep it up'],
+      ['shield', 'Dry-run & kill switch', 'See what would sleep. Stop everything at once.'],
+      ['bell', 'History, events, alerts', 'Every transition, to any data exporter'],
+    ],
+  },
+  end: {
+    tagline: ['Put the apps nobody uses', 'to sleep.'],
+    tags: 'Open source · Apache 2.0 · Otoroshi extension',
+    clever: 'Otoroshi on Clever Cloud, since day one',
+    cta: 'Get started in 5 minutes',
+    url: 'cloud-apim.github.io/otoroshi-clevercloud-reaper',
+    by: 'Built by',
+  },
+};

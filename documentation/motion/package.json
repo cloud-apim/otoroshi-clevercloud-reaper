@@ -1,0 +1,14 @@
+{
+  "name": "clevercloud-reaper-motion",
+  "private": true,
+  "type": "module",
+  "description": "The Clever Cloud Reaper motion design that loops on the landing page of the docs: played in a browser, rendered to mp4 frame by frame",
+  "scripts": {
+    "serve": "node serve.mjs",
+    "render": "node render.mjs",
+    "web": "node web.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.56.0"
+  }
+}

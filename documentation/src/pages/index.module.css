@@ -89,6 +89,31 @@
 }
 
 
+/* the loop, right under the hero, on its dark ground whatever the theme */
+.showreel {
+  background: #08080a;
+  padding: 0 0 3.5rem;
+}
+
+.showreelFrame {
+  position: relative;
+  z-index: 1;
+  max-width: 68rem;
+  margin: -2.5rem auto 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 90px rgba(249, 115, 22, 0.14);
+  background: #060607;
+  aspect-ratio: 16 / 9;
+}
+
+.showreelVideo {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .section {
   padding: 3.5rem 0;
 }
