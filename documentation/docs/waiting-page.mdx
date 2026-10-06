@@ -17,14 +17,19 @@ When the app cannot be started, the page says so:
 
 ![The waiting page, when the app is in error](/img/screenshots/reaper-waiting-page-error.png)
 
+import CodeBlock from '@theme/CodeBlock';
+import completePage from '!!raw-loader!@site/static/examples/waiting-page.html';
+
 ## Your own page
 
-Paste your HTML in **Custom waiting page** (`waiting_page`). It is served as is, with:
+Paste your HTML in **Custom waiting page** (`waiting_page`), in the console or in the plugin form of
+the route designer. It is served as is, with:
 
 - its **placeholders** replaced;
-- the **reload script** added right before `</body>` (or at the end, without a `</body>`).
+- the **reaper's script** added right before `</body>` (or at the end, without a `</body>`).
 
-You only write the page: the script that polls the app and reloads the page is always added for you.
+You only write the page: the script that polls the app and brings the user to it once it answers is
+always added for you. Two hooks let the page show how the wake up goes.
 
 ### Placeholders
 
@@ -37,7 +42,7 @@ You only write the page: the script that polls the app and reloads the page is a
 
 The values are HTML-escaped.
 
-### Hooks for the script
+### Hooks for the reaper's script
 
 The script updates the page while it waits, through two hooks. Both are optional:
 
@@ -73,6 +78,22 @@ The script updates the page while it waits, through two hooks. Both are optional
 </body>
 </html>
 ```
+
+### A complete page
+
+A page ready to use: it shows the state of the wake up and how long it has been waiting, says when it
+takes longer than usual or when the app cannot start, follows the light or dark theme of the browser,
+and reloads every 30 seconds for a browser without JavaScript. The polling and the reload are the
+reaper's script, added to it when it is served; its own script only counts the seconds. Paste it in
+**Custom waiting page** as is, or get the file:
+[waiting-page.html](pathname:///examples/waiting-page.html).
+
+<CodeBlock language="html" title="waiting-page.html">{completePage}</CodeBlock>
+
+It uses both hooks: `#clevercloud-reaper-status` for the state, and the `clevercloud-reaper-error`
+class to swap the progress bar for the error message.
+
+### The built-in page
 
 The built-in page is in the extension's resources, at
 [`cloudapim/extensions/clevercloudreaper/waiting.html`](https://github.com/cloud-apim/otoroshi-clevercloud-reaper/blob/main/src/main/resources/cloudapim/extensions/clevercloudreaper/waiting.html):

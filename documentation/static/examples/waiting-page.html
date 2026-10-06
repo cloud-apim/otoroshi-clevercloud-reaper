@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <!-- without javascript, a reload every 30 seconds does the job -->
+  <noscript><meta http-equiv="refresh" content="30"></noscript>
+  <title>{{app_name}} is starting</title>
+  <style>
+    :root { --bg: #f6f6f8; --card: #fff; --text: #17171c; --muted: #66667a; --accent: #4f46e5; --error: #c0392b; --line: #e3e3ea; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #111116; --card: #1b1b22; --text: #f1f1f5; --muted: #a0a0b2; --accent: #8b85ff; --line: #2c2c36; }
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body { background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+           display: grid; place-items: center; padding: 16px; }
+    main { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 36px 32px; max-width: 460px; width: 100%; text-align: center; }
+    h1 { font-size: 1.35rem; margin: 0 0 8px; }
+    p { color: var(--muted); margin: 0 0 18px; }
+    .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin: 22px 0 12px; }
+    .bar > div { height: 100%; width: 40%; background: var(--accent); border-radius: 3px; animation: slide 1.4s ease-in-out infinite; }
+    @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+    .meta { display: flex; justify-content: space-between; font-size: .85rem; color: var(--muted); }
+    .slow, .failed { display: none; font-size: .9rem; margin-top: 16px; }
+    .failed { color: var(--error); }
+    body.is-slow .slow { display: block; }
+    /* set and removed by the reaper's script while the app is in error */
+    body.clevercloud-reaper-error .failed { display: block; }
+    body.clevercloud-reaper-error .bar,
+    body.clevercloud-reaper-error .slow { display: none; }
+    button { margin-top: 18px; border: 1px solid var(--line); background: transparent; color: var(--text); border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; }
+    button:hover { border-color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>{{app_name}} is starting</h1>
+    <p>It was put to sleep to save energy. It wakes up now, and this page opens it as soon as it answers.</p>
+    <div class="bar" aria-hidden="true"><div></div></div>
+    <div class="meta">
+      <!-- kept up to date by the reaper's script: Asleep, wake up requested / Starting / Almost ready / Error -->
+      <span id="clevercloud-reaper-status">{{status}}</span>
+      <span id="elapsed">0:00</span>
+    </div>
+    <div class="slow">It takes longer than usual: it may be deploying a new version. Keep this page open.</div>
+    <div class="failed">The application could not be started. The team has been notified.</div>
+    <button type="button" onclick="window.location.reload()">Reload now</button>
+  </main>
+  <!-- the reaper adds its script right before </body>: it polls the app and reloads this page once the
+       app answers. This one only shows how long the page has been waiting. -->
+  <script>
+    (function () {
+      var started = Date.now();
+      setInterval(function () {
+        var s = Math.floor((Date.now() - started) / 1000);
+        document.getElementById('elapsed').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+        document.body.classList.toggle('is-slow', s > 180);
+      }, 1000);
+    })();
+  </script>
+</body>
+</html>

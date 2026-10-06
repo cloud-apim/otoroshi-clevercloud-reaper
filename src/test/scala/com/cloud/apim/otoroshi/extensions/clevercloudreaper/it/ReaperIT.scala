@@ -123,6 +123,37 @@ class ReaperIT extends munit.FunSuite {
     assertEquals(gateway.call(route, "/", Seq("Accept" -> "text/html")).status, 200)
   }
 
+  test("a custom waiting page gets its placeholders and the reload script") {
+    // the complete example of the documentation
+    val template = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("documentation/static/examples/waiting-page.html")), "UTF-8")
+    val custom   = gateway.createRoute(
+      "custompage",
+      clever.backendPort,
+      Seq(
+        NgPluginInstance(
+          plugin = s"cp:${classOf[CleverCloudReaper].getName}",
+          config = NgPluginInstanceConfig(
+            Json.obj("app_id" -> appId, "grace_period" -> 3, "fail_timeout" -> 30, "ready_delay" -> 0, "waiting_page" -> template)
+          )
+        )
+      )
+    )
+    eventually("the app to sleep again")(status().contains("Down"))
+    val page     = gateway.call(custom, "/", Seq("Accept" -> "text/html"))
+    assertEquals(page.status, 503)
+    assert(page.body.contains("<title>my-test-app is starting</title>"), page.body)
+    assert(!page.body.contains("{{"), "a placeholder was left")
+    // the reaper's script, once, right before the end of the body
+    assertEquals("'CleverCloud-Reaper': 'poll'".r.findAllMatchIn(page.body).size, 1)
+    assert(page.body.indexOf("'CleverCloud-Reaper': 'poll'") < page.body.lastIndexOf("</body>"))
+    // kept for a look in a browser
+    java.nio.file.Files.write(java.nio.file.Paths.get("target/custom-waiting-page.html"), page.body.getBytes("UTF-8"))
+    eventually("the app to be up")(status().contains("Up"))
+    // the next tests expect the app on its own routes
+    assertEquals(gateway.await(gateway.admin("/api/routes/route_custompage").delete()).status, 200)
+    Thread.sleep(1500L)
+  }
+
   test("an app can be put to sleep by hand, and its transitions are kept") {
     eventually("the app to be up")(status().contains("Up"))
     // traffic keeps it awake while the manual reap is asked
