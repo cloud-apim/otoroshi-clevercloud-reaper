@@ -46,3 +46,11 @@ The script stops with a clear message if the reaper talks to another API.
 | `FAKE_API_PORT` · `FAKE_BACKEND_PORT` | the ports of the fake Clever Cloud (`9990`, `9991`) |
 
 `npm run fake-clever` starts the fake Clever Cloud alone, to play with it.
+
+## The savings
+
+Savings only show after weeks of real use, so `npm run shoot:savings` takes
+`reaper-savings.png` and `reaper-route-savings.png` from the real console with demo answers: it
+intercepts the calls of the console to the extension in the browser, and serves a year of savings
+consistent with the apps of the fake Clever Cloud and the real prices of the `par` zone. It needs an
+Otoroshi with the extension, whatever Clever Cloud api its reaper talks to, and writes nothing to it.

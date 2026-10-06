@@ -6,7 +6,8 @@
   "scripts": {
     "setup": "npm install && npx playwright install chromium",
     "shoot": "node shoot.mjs",
-    "fake-clever": "node fake-clever.mjs"
+    "fake-clever": "node fake-clever.mjs",
+    "shoot:savings": "node shoot-savings.mjs"
   },
   "dependencies": {
     "playwright": "1.56.0"
