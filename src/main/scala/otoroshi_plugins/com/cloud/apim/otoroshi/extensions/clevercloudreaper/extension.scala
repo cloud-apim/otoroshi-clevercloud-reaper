@@ -44,7 +44,8 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
   lazy val store: ReaperStore        = new ReaperStore(env, s"${env.storageRoot}:extensions:${id.cleanup}")
   lazy val memory: ReaperMemory      = new ReaperMemory()
   lazy val tracker: AccessTracker    = new AccessTracker()
-  lazy val engine: ReaperEngine      = new ReaperEngine(env, conf, api, store, memory)
+  lazy val savings: ReaperSavings    = new ReaperSavings(env, conf, api, store, memory)
+  lazy val engine: ReaperEngine      = new ReaperEngine(env, conf, api, store, memory, savings)
   lazy val waiters: ReaperWaiters    = new ReaperWaiters(env, currentStatus, requestWake)
 
   private val flushTask = new AtomicReference[Cancellable]()
@@ -52,6 +53,8 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
   private val cleverAppsCache = new AtomicReference[(Long, Seq[CleverApp])]((0L, Seq.empty))
   // wakes asked from this node, so a burst of requests asks only once
   private val lastWakes = new scala.collection.concurrent.TrieMap[String, (Long, Long)]()
+  // costs and savings change at most once per sleep: synced less often than the states
+  private val lastSavingsSync = new java.util.concurrent.atomic.AtomicLong(0L)
 
   private given ec: ExecutionContext = env.otoroshiExecutionContext
   private given mat: Materializer    = env.otoroshiMaterializer
@@ -77,11 +80,26 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
       states   <- store.allStates()
       accesses <- store.allAccess()
       settings <- store.settings()
+      _        <- syncSavings()
     } yield {
       memory.replaceStates(states)
       memory.mergeAccess(accesses)
       memory.settings = settings
     }
+
+  private def syncSavings(): Future[Unit] = {
+    val now = System.currentTimeMillis()
+    val due = savings.enabled && now - lastSavingsSync.get() > 30000L && lastSavingsSync.compareAndSet(lastSavingsSync.get(), now)
+    if (!due) Future.unit
+    else
+      for {
+        costs <- store.allCosts()
+        saved <- store.allSavings()
+      } yield {
+        memory.replaceCosts(costs)
+        memory.replaceSavings(saved)
+      }
+  }
 
   // access tracking: each node pushes what it saw, the leaders keep the latest per app
 
@@ -188,6 +206,8 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
     AdminExtensionAdminApiRoute("GET", s"$apiPath/apps", wantsBody = false, (_, _, _, _) => handleApps(_ => true)),
     AdminExtensionAdminApiRoute("GET", s"$apiPath/apps/:appId", wantsBody = false, (ctx, _, _, _) => handleApp(ctx.named("appId"))),
     AdminExtensionAdminApiRoute("GET", s"$apiPath/apps/:appId/history", wantsBody = false, (ctx, req, _, _) => handleHistory(ctx.named("appId"), req)),
+    AdminExtensionAdminApiRoute("GET", s"$apiPath/apps/:appId/savings", wantsBody = false, (ctx, _, _, _) => handleAppSavings(ctx.named("appId"))),
+    AdminExtensionAdminApiRoute("GET", s"$apiPath/savings", wantsBody = false, (_, _, _, _) => handleSavings()),
     AdminExtensionAdminApiRoute("POST", s"$apiPath/apps/:appId/_wake", wantsBody = false, (ctx, _, _, _) => handleWake(ctx.named("appId"))),
     AdminExtensionAdminApiRoute("POST", s"$apiPath/apps/:appId/_reap", wantsBody = false, (ctx, _, key, _) => handleReap(ctx.named("appId"), s"apikey ${key.clientName}")),
     AdminExtensionAdminApiRoute("POST", s"$apiPath/apps/:appId/_reset", wantsBody = false, (ctx, _, key, _) => handleReset(ctx.named("appId"), s"apikey ${key.clientName}"))
@@ -203,6 +223,8 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
     AdminExtensionBackofficeAuthRoute("POST", s"$boPath/routes/:routeId/_disable", wantsBody = false, (ctx, _, user, _) => withUser(user)(u => handleDisable(ctx.named("routeId"), u))),
     AdminExtensionBackofficeAuthRoute("PUT", s"$boPath/routes/:routeId/config", wantsBody = true, (ctx, _, user, body) => withUser(user)(u => handleConfig(ctx.named("routeId"), body, u))),
     AdminExtensionBackofficeAuthRoute("GET", s"$boPath/apps/:appId/history", wantsBody = false, (ctx, req, user, _) => withAppRights(user, ctx.named("appId"), write = false)((_, _) => handleHistory(ctx.named("appId"), req))),
+    AdminExtensionBackofficeAuthRoute("GET", s"$boPath/apps/:appId/savings", wantsBody = false, (ctx, _, user, _) => withAppRights(user, ctx.named("appId"), write = false)((_, _) => handleAppSavings(ctx.named("appId")))),
+    AdminExtensionBackofficeAuthRoute("GET", s"$boPath/savings", wantsBody = false, (_, _, user, _) => withUser(user)(_ => handleSavings())),
     AdminExtensionBackofficeAuthRoute("POST", s"$boPath/apps/:appId/_wake", wantsBody = false, (ctx, _, user, _) => withAppRights(user, ctx.named("appId"), write = true)((_, _) => handleWake(ctx.named("appId")))),
     AdminExtensionBackofficeAuthRoute("POST", s"$boPath/apps/:appId/_reap", wantsBody = false, (ctx, _, user, _) => withAppRights(user, ctx.named("appId"), write = true)((u, _) => handleReap(ctx.named("appId"), u.email))),
     AdminExtensionBackofficeAuthRoute("POST", s"$boPath/apps/:appId/_reset", wantsBody = false, (ctx, _, user, _) => withAppRights(user, ctx.named("appId"), write = true)((u, _) => handleReset(ctx.named("appId"), u.email))),
@@ -352,6 +374,13 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
       val pageSize = req.getQueryString("page_size").flatMap(_.toIntOption).filter(_ > 0).map(Math.min(_, 500)).getOrElse(20)
       store.history(id, (page - 1) * pageSize, pageSize).map(items => Results.Ok(JsArray(items.map(_.json))))
   }
+
+  private def handleAppSavings(appId: Option[String]): Future[Result] = appId match {
+    case None     => badRequest("no app id")
+    case Some(id) => Results.Ok(savings.appReport(id)).vfuture
+  }
+
+  private def handleSavings(): Future[Result] = savings.globalReport().map(json => Results.Ok(json))
 
   private def handleWake(appId: Option[String]): Future[Result] = appId match {
     case None                => badRequest("no app id")
@@ -522,6 +551,7 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
       "last_access_at" -> (if (enabled) access.getOrElse(0L) else 0L),
       "reap_at"        -> (if (!enabled) 0L
                            else state.filter(_.status == ReaperStatus.Up).map(s => ReaperRules.lastActivity(s, access) + s.gracePeriod).getOrElse(0L)),
+      "saved"          -> (if (!enabled || !savings.enabled) BigDecimal(0) else appId.map(id => savings.appTotal(id)).getOrElse(BigDecimal(0))),
       "search"         -> (Seq(route.name, route.id) ++ domains ++ targets ++ appId.toSeq ++ state.flatMap(_.name).toSeq)
         .mkString(" ")
         .toLowerCase

@@ -19,7 +19,14 @@ import scala.util.control.NonFatal
  * it, and wake ups and manual actions call it directly. A datastore lock per app keeps two leaders,
  * or a tick and a wake up, from working on the same app at once.
  */
-class ReaperEngine(env: Env, conf: ReaperConfiguration, api: CleverCloudApi, store: ReaperStore, memory: ReaperMemory) {
+class ReaperEngine(
+    env: Env,
+    conf: ReaperConfiguration,
+    api: CleverCloudApi,
+    store: ReaperStore,
+    memory: ReaperMemory,
+    savings: ReaperSavings
+) {
 
   private val logger                  = Logger("cloud-apim-clevercloud-reaper")
   private val throttled               = new ThrottledLogger(logger)
@@ -118,8 +125,10 @@ class ReaperEngine(env: Env, conf: ReaperConfiguration, api: CleverCloudApi, sto
                                 wakes.contains(m.appId) || pendingWakes.contains(m.appId),
                                 now
                               ).map(_ => ())
-                            }.map { _ =>
+                            }.flatMap { _ =>
                               lastTick.set(Json.obj("at" -> now, "full" -> full, "apps" -> candidates.size))
+                              // what the apps cost, read again now and then: off the decisions, a few per run
+                              if (full) savings.refreshDue(candidates.flatMap(m => memory.state(m.appId))) else Future.unit
                             }
                         }
           } yield ()
@@ -229,7 +238,14 @@ class ReaperEngine(env: Env, conf: ReaperConfiguration, api: CleverCloudApi, sto
 
   private def transition(state: AppState, decision: Decision, now: Long, actionAt: Option[Long]): Future[AppState] = {
     val changed = decision.status != state.status
+    // a sleep counts as saved when the reaper caused it: from its own stop to the next start
+    val reaped  = state.status == ReaperStatus.WaitingForShutdown && decision.status == ReaperStatus.Down
+    val wakes   = state.status == ReaperStatus.Down && decision.status != ReaperStatus.Down
     val next    = state.copy(
+      asleepSince =
+        if (reaped) Some(now)
+        else if (decision.status == ReaperStatus.Down) state.asleepSince
+        else None,
       status = decision.status,
       cause = Some(decision.cause),
       errorCause = if (decision.status == ReaperStatus.Error) Some(decision.cause) else None,
@@ -240,13 +256,14 @@ class ReaperEngine(env: Env, conf: ReaperConfiguration, api: CleverCloudApi, sto
     )
     val t       = Transition(state.appId, state.status, decision.status, decision.cause, now)
     for {
-      _ <- save(next)
-      _ <- store.pushHistory(t, conf.historySize)
+      slept <- if (wakes) savings.close(state, now) else None.vfuture
+      _     <- save(next)
+      _     <- store.pushHistory(t, conf.historySize)
     } yield {
       val label = s"${next.name.getOrElse(next.appId)} (${next.appId})"
       if (decision.status == ReaperStatus.Error) logger.warn(s"$label: ${t.from} -> ${t.to}: ${t.cause}")
       else logger.info(s"$label: ${t.from} -> ${t.to}: ${t.cause}")
-      CleverCloudReaperEvent(t, next, env).toAnalytics()(using env)
+      CleverCloudReaperEvent(t, next, slept, env).toAnalytics()(using env)
       if (decision.status == ReaperStatus.Error) CleverCloudReaperAppInErrorAlert(t, next, env).toAnalytics()(using env)
       next
     }
@@ -374,7 +391,9 @@ class ReaperEngine(env: Env, conf: ReaperConfiguration, api: CleverCloudApi, sto
                     case Left(err) => Left(err.toString).vfuture
                     case Right(_)  =>
                       logger.info(s"${state.name.getOrElse(appId)} ($appId) is started and no longer managed: $cause")
-                      forget(appId).map(_ => Right(()))
+                      // the last sleep of the app under the reaper
+                      val slept = if (state.status == ReaperStatus.Down) savings.close(state, System.currentTimeMillis()) else None.vfuture
+                      slept.flatMap(_ => forget(appId)).map(_ => Right(()))
                   }
               }
             case Some(state)                                                                              =>

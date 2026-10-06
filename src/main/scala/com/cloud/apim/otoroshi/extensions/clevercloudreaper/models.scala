@@ -227,6 +227,8 @@ final case class AppState(
     lastDownAt: Option[Long] = None,
     actionAt: Option[Long] = None,
     lastCheckAt: Option[Long] = None,
+    // set when the reaper put the app to sleep itself: the start of what it saves
+    asleepSince: Option[Long] = None,
     routes: Seq[String] = Seq.empty,
     gracePeriod: Long = CleverCloudReaperConfig.default.gracePeriod * 1000L,
     failTimeout: Long = CleverCloudReaperConfig.default.failTimeout * 1000L
@@ -252,6 +254,7 @@ object AppState {
       "last_down_at"       -> o.lastDownAt,
       "action_at"          -> o.actionAt,
       "last_check_at"      -> o.lastCheckAt,
+      "asleep_since"       -> o.asleepSince,
       "routes"             -> o.routes,
       "grace_period"       -> o.gracePeriod,
       "fail_timeout"       -> o.failTimeout
@@ -270,6 +273,7 @@ object AppState {
         lastDownAt = json.select("last_down_at").asOpt[Long],
         actionAt = json.select("action_at").asOpt[Long],
         lastCheckAt = json.select("last_check_at").asOpt[Long],
+        asleepSince = json.select("asleep_since").asOpt[Long],
         routes = json.select("routes").asOpt[Seq[String]].getOrElse(Seq.empty),
         gracePeriod = json.select("grace_period").asOpt[Long].getOrElse(CleverCloudReaperConfig.default.gracePeriod * 1000L),
         failTimeout = json.select("fail_timeout").asOpt[Long].getOrElse(CleverCloudReaperConfig.default.failTimeout * 1000L)

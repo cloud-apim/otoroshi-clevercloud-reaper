@@ -19,6 +19,9 @@ const OWNERS = [
 
 const deployment = (state, action, at = Date.now()) => ({ uuid: `deployment-${at}`, state, action, date: at });
 
+// the real prices of the par zone, in euros per hour and per instance
+const PRICES = { pico: 0.00625, nano: 0.0083333, XS: 0.0222222, S: 0.0444444, M: 0.1055556, L: 0.2111111, XL: 0.4222222 };
+
 /**
  * The apps, by the state the console ends up showing for them:
  *  - startDelay / startOutcome: what a start does;
@@ -37,26 +40,30 @@ export function demoApps() {
     startOutcome: 'OK',
     stopDelay: 0,
     visible: true,
+    flavor: 'XS',
+    instances: 1,
     ...more,
   });
   const hour = 3600000;
   return [
     // the app of the route the docs show: put to sleep and woken up for real during the shoot
-    app(1, 'analytics-dashboard', ACME, 'SHOULD_BE_UP', deployment('OK', 'DEPLOY', Date.now() - 3 * hour)),
-    app(2, 'shop-staging', ACME, 'SHOULD_BE_UP', deployment('OK', 'DEPLOY', Date.now() - 5 * hour)),
-    app(3, 'billing-recette', ACME, 'SHOULD_BE_UP', deployment('OK', 'DEPLOY', Date.now() - 2 * hour)),
-    app(4, 'docs-preview', LABS, 'SHOULD_BE_DOWN', deployment('OK', 'UNDEPLOY', Date.now() - 6 * hour), { startDelay: 60000 }),
-    app(5, 'partner-portal-demo', ACME, 'SHOULD_BE_DOWN', deployment('OK', 'UNDEPLOY', Date.now() - 48 * hour)),
+    app(1, 'analytics-dashboard', ACME, 'SHOULD_BE_UP', deployment('OK', 'DEPLOY', Date.now() - 3 * hour), { flavor: 'S' }),
+    app(2, 'shop-staging', ACME, 'SHOULD_BE_UP', deployment('OK', 'DEPLOY', Date.now() - 5 * hour), { flavor: 'M', instances: 2 }),
+    app(3, 'billing-recette', ACME, 'SHOULD_BE_UP', deployment('OK', 'DEPLOY', Date.now() - 2 * hour), { flavor: 'S' }),
+    // put to sleep by the reaper during the shoot, so their sleep counts as saved
+    app(4, 'docs-preview', LABS, 'SHOULD_BE_UP', deployment('OK', 'DEPLOY', Date.now() - 6 * hour), { startDelay: 60000 }),
+    app(5, 'partner-portal-demo', ACME, 'SHOULD_BE_UP', deployment('OK', 'DEPLOY', Date.now() - 48 * hour), { flavor: 'M', instances: 2 }),
     // starting, for ever
     app(6, 'mobile-api-dev', LABS, 'WANTS_TO_BE_UP', deployment('WIP', 'DEPLOY')),
     // its stop takes ten minutes
     app(7, 'crm-sandbox', ACME, 'SHOULD_BE_UP', deployment('OK', 'DEPLOY', Date.now() - 6 * hour), { stopDelay: 600000 }),
     // its last start failed
     app(8, 'intranet-dev', ACME, 'WANTS_TO_BE_UP', deployment('FAIL', 'DEPLOY', Date.now() - 3 * hour)),
-    // asleep, and its start fails
-    app(9, 'legacy-backoffice', LABS, 'SHOULD_BE_DOWN', deployment('OK', 'UNDEPLOY', Date.now() - 24 * hour), {
+    // put to sleep during the shoot too, and its start fails
+    app(9, 'legacy-backoffice', LABS, 'SHOULD_BE_UP', deployment('OK', 'DEPLOY', Date.now() - 24 * hour), {
       startDelay: 5000,
       startOutcome: 'FAIL',
+      flavor: 'L',
     }),
     // the token cannot see it
     app(10, 'ml-notebooks', LABS, 'SHOULD_BE_UP', deployment('OK', 'DEPLOY'), { visible: false }),
@@ -86,6 +93,13 @@ export async function startFakeClever({ apiPort = 9990, backendPort = 9991, log 
     ownerId: a.owner,
     state: a.state,
     vhosts: [{ fqdn: `${a.slug}-app.oto.tools` }],
+    zone: 'par',
+    instance: {
+      minInstances: a.instances,
+      maxInstances: a.instances,
+      minFlavor: { name: a.flavor, price_id: `apps.${a.flavor}` },
+      maxFlavor: { name: a.flavor, price_id: `apps.${a.flavor}` },
+    },
   });
 
   const api = createServer((req, res) => {
@@ -100,6 +114,11 @@ export async function startFakeClever({ apiPort = 9990, backendPort = 9991, log 
           applications: apps.filter((a) => a.owner === o.id && a.visible).map((a) => ({ id: a.id, name: a.name, state: a.state })),
         })),
       });
+    }
+    // the prices of clever cloud, per instance and per hour
+    if (req.method === 'GET' && path === '/v4/billing/price-system') {
+      const runtime = Object.entries(PRICES).map(([flavor, price]) => ({ source: 'apps', flavor, slug_id: `apps.${flavor}`, time_unit: 'PT1H', price }));
+      return send(res, 200, { zone_id: 'par', currency: 'EUR', runtime, countable: [] });
     }
     let m = path.match(/^\/v2\/organisations\/([^/]+)\/applications$/);
     if (req.method === 'GET' && m) return send(res, 200, apps.filter((a) => a.owner === m[1] && a.visible).map(appJson));

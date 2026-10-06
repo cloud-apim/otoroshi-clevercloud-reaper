@@ -53,6 +53,46 @@ function reaperDate(ts) {
   return ts ? new Date(ts).toLocaleString() : '-';
 }
 
+function reaperMoney(amount, currency, digits) {
+  const value = Number(amount || 0);
+  const d = digits === undefined ? 2 : digits;
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currency || 'EUR', minimumFractionDigits: d, maximumFractionDigits: d }).format(value);
+  } catch (e) {
+    return value.toFixed(d) + ' ' + (currency || '');
+  }
+}
+
+// the savings of the last days, as small bars: no chart library in the backoffice
+function ReaperBars(props) {
+  const h = React.createElement;
+  const days = props.days || [];
+  const max = Math.max.apply(null, days.map((d) => Number(d.saved || 0)).concat([0]));
+  return h('div', { style: { display: 'flex', alignItems: 'flex-end', gap: 3, height: 64, paddingTop: 6 } },
+    days.map((d) => {
+      const value = Number(d.saved || 0);
+      const height = max > 0 ? Math.max(value > 0 ? 3 : 1, Math.round((value / max) * 58)) : 1;
+      return h('div', {
+        key: d.date,
+        title: d.date + ': ' + reaperMoney(value, props.currency),
+        style: { width: 12, height: height, borderRadius: 2, background: value > 0 ? 'var(--color-primary, #f9b000)' : 'rgba(128,128,128,0.35)' },
+      });
+    })
+  );
+}
+
+function reaperTile(label, value, hint) {
+  const h = React.createElement;
+  return h('div', {
+    key: label,
+    style: { border: '1px solid rgba(128,128,128,0.35)', borderRadius: 6, padding: '8px 14px', minWidth: 150 },
+  },
+    h('div', { style: { fontSize: '0.72rem', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.06em' } }, label),
+    h('div', { style: { fontSize: '1.35rem', fontWeight: 600 } }, value),
+    hint ? h('div', { style: { fontSize: '0.75rem', opacity: 0.6 } }, hint) : null
+  );
+}
+
 function reaperNext(state) {
   if (!state || state.status !== 'Up' || !state.reap_at) return '-';
   const left = state.reap_at - Date.now();
@@ -88,7 +128,7 @@ function reaperNotices(overview) {
 // ---------------------------------------------------------------------------------------------
 
 class CleverCloudReaperRoutesPage extends Component {
-  state = { overview: null };
+  state = { overview: null, savings: null };
 
   columns = [
     { title: 'Name', filterId: 'name', content: (item) => item.name },
@@ -128,6 +168,15 @@ class CleverCloudReaperRoutesPage extends Component {
       content: (item) => item.reap_at,
       wrappedCell: (value, item) => reaperNext(item.state),
     },
+    {
+      title: 'Saved',
+      filterId: 'saved',
+      notFilterable: true,
+      style: { width: 110, textAlign: 'right' },
+      content: (item) => item.saved,
+      wrappedCell: (value, item) =>
+        item.reaper.enabled && this.state.savings && this.state.savings.enabled ? reaperMoney(value, this.state.savings.currency) : '-',
+    },
   ];
 
   componentDidMount() {
@@ -135,7 +184,25 @@ class CleverCloudReaperRoutesPage extends Component {
     this.loadOverview();
   }
 
-  loadOverview = () => reaperCall('GET', '/overview').then(({ json }) => this.setState({ overview: json }));
+  loadOverview = () =>
+    Promise.all([reaperCall('GET', '/overview'), reaperCall('GET', '/savings')]).then(([overview, savings]) =>
+      this.setState({ overview: overview.json, savings: savings.status < 400 ? savings.json : null })
+    );
+
+  renderSavings() {
+    const h = React.createElement;
+    const s = this.state.savings;
+    if (!s || !s.enabled) return null;
+    const money = (v) => reaperMoney(v, s.currency);
+    return h('div', { className: 'd-flex align-items-stretch gap-2 mb-3', style: { flexWrap: 'wrap' } },
+      reaperTile('Saved today', money(s.today)),
+      reaperTile('This month', money(s.this_month)),
+      reaperTile('This year', money(s.this_year)),
+      reaperTile('In all', money(s.total)),
+      reaperTile('Saving right now', reaperMoney(s.saving_per_hour, s.currency, s.saving_per_hour > 0 && s.saving_per_hour < 1 ? 4 : 2) + ' / h',
+        s.asleep + (s.asleep === 1 ? ' app' : ' apps') + ' put to sleep by the reaper')
+    );
+  }
 
   // filtered, sorted and paginated on the server, so the pages count what the filters keep
   fetchItems = (paginationState) => {
@@ -184,6 +251,7 @@ class CleverCloudReaperRoutesPage extends Component {
     return h('div', null,
       reaperNotices(this.state.overview),
       this.renderSummary(),
+      this.renderSavings(),
       h(Table, {
         parentProps: this.props,
         selfUrl: 'extensions/cloud-apim/clevercloud-reaper',
@@ -334,7 +402,7 @@ const REAPER_DEFAULT_CONFIG = {
 };
 
 class CleverCloudReaperRoutePage extends Component {
-  state = { row: null, config: null, dirty: false, busy: false, error: null, historyKey: 0 };
+  state = { row: null, config: null, savings: null, dirty: false, busy: false, error: null, historyKey: 0 };
 
   routeId = () => this.props.match.params.routeId;
 
@@ -356,6 +424,11 @@ class CleverCloudReaperRoutePage extends Component {
         return;
       }
       this.props.setTitle((json.reaper.enabled ? 'Update the reaper of ' : 'Enable the reaper on ') + json.name);
+      if (json.reaper.enabled && json.reaper.app_id) {
+        reaperCall('GET', '/apps/' + json.reaper.app_id + '/savings').then((res) =>
+          this.setState({ savings: res.status < 400 && res.json.enabled ? res.json : null })
+        );
+      }
       const config = this.state.dirty && this.state.config
         ? this.state.config
         : Object.assign({}, REAPER_DEFAULT_CONFIG, json.reaper.config || {}, json.reaper.config ? {} : { app_id: json.reaper.app_id });
@@ -538,6 +611,39 @@ class CleverCloudReaperRoutePage extends Component {
     },
   };
 
+  savingsSchema() {
+    const h = React.createElement;
+    const s = this.state.savings;
+    const money = (v, d) => reaperMoney(v, s.currency, d);
+    const field = (label, content) => ({ type: ReaperField, props: { label: label, content: content } });
+    const c = s.cost;
+    const size = (n, flavor) => n + ' × ' + flavor;
+    const cost = !c
+      ? 'not known yet: the size of the app and the prices of its zone are read from Clever Cloud within a few minutes'
+      : [
+          h('span', { key: 'min' }, h('strong', null, money(c.hourly_min, 4) + ' / h'), ' (' + size(c.min_instances, c.min_flavor) + ', ' + c.zone + ')'),
+          c.hourly_max !== c.hourly_min
+            ? h('span', { key: 'max', style: { opacity: 0.7 } }, 'up to ' + money(c.hourly_max, 4) + ' / h (' + size(c.max_instances, c.max_flavor) + ')')
+            : null,
+        ];
+    return {
+      cost: field('Cost when it runs', cost),
+      current: field('Asleep now', s.current
+        ? [h('strong', { key: 'v' }, money(s.current.saved)), h('span', { key: 's', style: { opacity: 0.8 } }, 'saved since ' + reaperDate(s.current.since))]
+        : this.state.row.state && this.state.row.state.status === 'Down'
+          ? h('span', { style: { opacity: 0.8 } }, 'not counted: the app was not put to sleep by the reaper, or before it counted savings')
+          : '-'),
+      saved: field('Saved', [
+        h('span', { key: 't' }, 'today ', h('strong', null, money(s.today))),
+        h('span', { key: 'm' }, 'this month ', h('strong', null, money(s.this_month))),
+        h('span', { key: 'y' }, 'this year ', h('strong', null, money(s.this_year))),
+        h('span', { key: 'a' }, 'in all ', h('strong', null, money(s.total))),
+      ]),
+      slept: field('Time asleep', s.slept_hours + ' h, over ' + s.sleeps + (s.sleeps === 1 ? ' sleep' : ' sleeps')),
+      days: field('Last 30 days', h(ReaperBars, { days: s.last_30_days, currency: s.currency })),
+    };
+  }
+
   settingsFlow = [
     '<<<Clever Cloud app',
     'app_id',
@@ -570,6 +676,14 @@ class CleverCloudReaperRoutePage extends Component {
         value: {},
         onChange: () => {},
       }),
+      this.state.savings && row.reaper.enabled
+        ? h(Form, {
+            flow: ['<<<Savings', 'cost', 'current', 'saved', 'slept', 'days'],
+            schema: this.savingsSchema(),
+            value: {},
+            onChange: () => {},
+          })
+        : null,
       h(Form, {
         flow: this.settingsFlow,
         schema: this.settingsSchema,

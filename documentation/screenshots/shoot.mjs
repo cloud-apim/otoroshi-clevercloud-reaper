@@ -94,12 +94,12 @@ function demoRoutes(fake) {
     },
     { slug: 'shop-staging', reaper: reaper('shop-staging', { grace_period: 3600 }) },
     { slug: 'billing-recette', reaper: reaper('billing-recette', { grace_period: 3600 }) },
-    { slug: 'docs-preview', reaper: reaper('docs-preview', { grace_period: 900 }) },
-    { slug: 'partner-portal-demo', reaper: reaper('partner-portal-demo', { grace_period: 7200 }) },
+    { slug: 'docs-preview', reaper: reaper('docs-preview', { grace_period: 60 }) },
+    { slug: 'partner-portal-demo', reaper: reaper('partner-portal-demo', { grace_period: 60 }) },
     { slug: 'mobile-api-dev', reaper: reaper('mobile-api-dev', { grace_period: 1800, api_behavior: 'unavailable' }) },
     { slug: 'crm-sandbox', reaper: reaper('crm-sandbox', { grace_period: 60 }) },
     { slug: 'intranet-dev', reaper: reaper('intranet-dev', { grace_period: 3600 }) },
-    { slug: 'legacy-backoffice', reaper: reaper('legacy-backoffice', { grace_period: 3600 }) },
+    { slug: 'legacy-backoffice', reaper: reaper('legacy-backoffice', { grace_period: 60 }) },
     { slug: 'ml-notebooks', reaper: reaper('ml-notebooks', { grace_period: 3600 }) },
     { slug: 'summer-campaign', reaper: reaper('summer-campaign', { grace_period: 3600 }, false) },
     { slug: 'auth-service', backend: 'auth.internal.acme.example' },
@@ -294,8 +294,16 @@ const run = async () => {
       r['intranet-dev']?.status_label === 'Error' &&
       r['ml-notebooks']?.status_label === 'Initializing' &&
       r['docs-preview']?.status_label === 'Asleep' &&
+      r['partner-portal-demo']?.status_label === 'Asleep' &&
+      r['legacy-backoffice']?.status_label === 'Asleep' &&
       r['shop-staging']?.status_label === 'Up'
     );
+    // the costs are read from the fake clever cloud, a few apps at each full run of the job
+    for (let i = 0; i < 60; i++) {
+      const savings = (await call(page, 'GET', `${REAPER}/savings`)).json;
+      if (savings && savings.asleep >= 4) break;
+      await sleep(2000);
+    }
 
     console.log('capturing…');
     // the routes, filtered on the demo
@@ -338,6 +346,9 @@ const run = async () => {
     await shootSection(page, 'reaper-route-status', 'Status', 'Clever Cloud app');
     await routePage(page, FEATURED);
     await shootSection(page, 'reaper-route-history', 'History');
+    // the savings of an app still asleep: what it costs, and what its sleep saved so far
+    await routePage(page, `${PREFIX}partner-portal-demo`);
+    await shootSection(page, 'reaper-route-savings', 'Savings', 'Clever Cloud app');
 
     // a route without the reaper
     await routePage(page, `${PREFIX}auth-service`);

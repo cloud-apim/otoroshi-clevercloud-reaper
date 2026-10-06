@@ -57,6 +57,9 @@ the [quickstart](https://cloud-apim.github.io/otoroshi-clevercloud-reaper/docs/q
   fails to stop or start goes into error and is left alone until someone resets it
 - **Dry-run and a kill switch**: read what would be put to sleep before arming it, and stop all
   reaping across the cluster from the console, without a restart
+- **Savings, in money**: each sleep is counted when it ends, at the cost of the app from its size and
+  the Clever Cloud prices of its zone, and stored: per app and for the install, today, this month,
+  this year and in all, with what the apps asleep right now would cost per hour
 - **History, events and alerts**: every transition is kept per app and sent as an Otoroshi event; an
   app in error raises a `CleverCloudReaperAppInError` alert
 - **Admin API**: list the apps, read their history, wake them up, put them to sleep, reset them
@@ -139,6 +142,8 @@ The extension itself needs only the token. Everything else has a default:
 | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_JOB_FAST_INTERVAL` | `5000` | how often apps in transit are followed (ms) |
 | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_ACCESS_FLUSH_INTERVAL` | `10000` | how often each node flushes its accesses (ms) |
 | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_HISTORY_SIZE` | `100` | transitions kept per app |
+| `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_SAVINGS_ENABLED` | `true` | count what sleeping saved |
+| `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_SAVINGS_CURRENCY` | `EUR` | the currency of the prices and the savings |
 
 The [configuration reference](https://cloud-apim.github.io/otoroshi-clevercloud-reaper/docs/reference/configuration)
 and the [plugin reference](https://cloud-apim.github.io/otoroshi-clevercloud-reaper/docs/reference/plugin)

@@ -19,4 +19,5 @@
 
 - [x] Sélecteur d'app Clever dans le formulaire du plugin (options chargées depuis l'API Clever)
 - [x] Mode `client_poll` retiré : redondant avec la page d'attente des navigateurs
-- [ ] Calcul des économies et rapports (hors v1)
+- [x] Calcul des économies : coût de chaque app (taille × prix Clever de sa zone) stocké et relu toutes les 6 h, chaque sommeil comptabilisé une fois à sa fin, totaux par app et par jour stockés
+- [ ] Refaire les captures avec les économies (`reaper-route-savings.png` manque, les autres n'ont pas encore les tuiles et la colonne)

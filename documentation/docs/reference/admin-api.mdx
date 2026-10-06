@@ -130,6 +130,67 @@ curl -u $AUTH -X POST $REAPER/apps/app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab/_res
 Puts the app back in `WaitingForInit`: its state is read from Clever Cloud again at the next run of
 the job. Works from any state, not only `Error`.
 
+## Savings
+
+```bash
+curl -u $AUTH $REAPER/savings
+```
+
+What the sleeps saved for the whole install, the ones still running included. Amounts are in
+`currency`, rounded to four decimals.
+
+```json
+{
+  "enabled": true,
+  "currency": "EUR",
+  "total": 412.8731,
+  "today": 3.2104,
+  "this_month": 61.5502,
+  "this_year": 398.0412,
+  "asleep": 7,
+  "saving_per_hour": 0.6444,
+  "apps_with_cost": 12,
+  "last_30_days": [{ "date": "2026-09-07", "saved": 1.9301 }, "..."],
+  "last_12_months": [{ "month": "2025-11", "saved": 12.4410 }, "..."]
+}
+```
+
+| Field | |
+|---|---|
+| `asleep` | the apps the reaper put to sleep that sleep right now |
+| `saving_per_hour` | what those apps would cost per hour if they ran |
+| `apps_with_cost` | the apps whose cost is known |
+
+```bash
+curl -u $AUTH $REAPER/apps/app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab/savings
+```
+
+The same for one app, with its cost and its sleeps:
+
+```json
+{
+  "enabled": true,
+  "app_id": "app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab",
+  "currency": "EUR",
+  "cost": {
+    "zone": "par",
+    "min_flavor": "M", "min_instances": 2, "hourly_min": 0.2111,
+    "max_flavor": "L", "max_instances": 4, "hourly_max": 0.8444,
+    "refreshed_at": 1791216000000
+  },
+  "total": 58.2214,
+  "slept_hours": 275.8,
+  "sleeps": 19,
+  "current": { "since": 1791190000000, "saved": 1.5247 },
+  "last_sleep": { "from": 1791100000000, "to": 1791150000000, "hours": 13.89, "hourly": 0.2111, "saved": 2.9319 },
+  "today": 0.4573, "this_month": 7.3007, "this_year": 58.2214,
+  "last_30_days": [{ "date": "2026-09-07", "saved": 0.2111 }, "..."]
+}
+```
+
+`cost` is `null` until the size of the app has been read; `current` is `null` when the app is not
+asleep. See [Savings](../savings) for what is counted.
+
 ## Cluster plumbing
 
 `PUT /api/extensions/cloud-apim/extensions/clevercloud-reaper/cluster/access` is how workers push

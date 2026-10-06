@@ -10,7 +10,7 @@ const sidebars = {
       type: 'category',
       label: 'Using the reaper',
       collapsed: false,
-      items: ['route', 'waking-up', 'staying-awake', 'waiting-page', 'console'],
+      items: ['route', 'waking-up', 'staying-awake', 'waiting-page', 'console', 'savings'],
     },
     {
       type: 'category',

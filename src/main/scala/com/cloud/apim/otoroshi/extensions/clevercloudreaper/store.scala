@@ -23,6 +23,11 @@ class ReaperStore(env: Env, prefix: String) {
   private def wakeKey(appId: String): String    = s"$prefix:wakes:$appId"
   private def lockKey(appId: String): String    = s"$prefix:locks:$appId"
   private def disabledKey(routeId: String): String = s"$prefix:disabled:$routeId"
+  private def costKey(appId: String): String    = s"$prefix:costs:$appId"
+  private def pricesKey(zone: String, currency: String): String = s"$prefix:prices:$zone-$currency"
+  private def savingsKey(appId: String): String = s"$prefix:savings-apps:$appId"
+  private def savedDayKey(day: String): String  = s"$prefix:savings-days:$day"
+  private val savedTotalKey: String             = s"$prefix:savings-total"
   private val settingsKey: String               = s"$prefix:settings"
 
   private def idOf(key: String): String = key.drop(key.lastIndexOf(":") + 1)
@@ -98,6 +103,44 @@ class ReaperStore(env: Env, prefix: String) {
 
   def recentlyDisabled()(using ec: ExecutionContext): Future[Set[String]] =
     redis.keys(s"$prefix:disabled:*").map(_.map(idOf).toSet)
+
+  // savings: what each app costs, the prices behind it, and what sleeping saved
+
+  def allCosts()(using ec: ExecutionContext): Future[Map[String, AppCost]] =
+    readAll(s"$prefix:costs:*")(bs => AppCost.read(bs.utf8String))
+
+  def saveCost(cost: AppCost): Future[Boolean] = redis.set(costKey(cost.appId), cost.json.stringify)
+
+  def prices(zone: String, currency: String)(using ec: ExecutionContext): Future[Option[PriceSystem]] =
+    redis.get(pricesKey(zone, currency)).map(_.flatMap(bs => PriceSystem.read(bs.utf8String)))
+
+  def savePrices(prices: PriceSystem): Future[Boolean] = redis.set(pricesKey(prices.zone, prices.currency), prices.json.stringify)
+
+  def allSavings()(using ec: ExecutionContext): Future[Map[String, AppSavings]] =
+    readAll(s"$prefix:savings-apps:*")(bs => AppSavings.read(bs.utf8String))
+
+  def savings(appId: String)(using ec: ExecutionContext): Future[Option[AppSavings]] =
+    redis.get(savingsKey(appId)).map(_.flatMap(bs => AppSavings.read(bs.utf8String)))
+
+  /** Only ever called under the lock of the app: its document is read and written by one leader at a time. */
+  def saveSavings(savings: AppSavings): Future[Boolean] = redis.set(savingsKey(savings.appId), savings.json.stringify)
+
+  /** The totals of the whole install, as counters: any leader adds to them without a lock. */
+  def addSaved(byDay: Map[String, Long])(using ec: ExecutionContext): Future[Unit] =
+    Future
+      .sequence(byDay.toSeq.filter(_._2 > 0L).map { case (day, micros) => redis.incrby(savedDayKey(day), micros) })
+      .flatMap(_ => redis.incrby(savedTotalKey, byDay.values.sum))
+      .map(_ => ())
+
+  def savedDays(days: Seq[String])(using ec: ExecutionContext): Future[Map[String, Long]] =
+    if (days.isEmpty) Map.empty[String, Long].vfuture
+    else
+      redis.mget(days.map(savedDayKey)*).map { values =>
+        days.zip(values).collect { case (day, Some(v)) => day -> v.utf8String.toLongOption.getOrElse(0L) }.toMap
+      }
+
+  def savedTotal()(using ec: ExecutionContext): Future[Long] =
+    redis.get(savedTotalKey).map(_.flatMap(_.utf8String.toLongOption).getOrElse(0L))
 
   // settings
 

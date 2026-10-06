@@ -27,6 +27,7 @@ from memory: the page costs nothing to the datastore.
 | **Status** | the state of its app: <span className="status status--up">Up</span> <span className="status status--going">Going to sleep</span> <span className="status status--asleep">Asleep</span> <span className="status status--waking">Waking up</span> <span className="status status--init">Initializing</span> <span className="status status--error">Error</span> |
 | **Last access** | the last request on the app, from any of its routes and any node |
 | **Goes to sleep** | when the app will be put to sleep if nothing happens before |
+| **Saved** | what the sleeps of the app saved in all |
 
 Every column can be **filtered** (type in the box under its title) and **sorted** (click its
 title). To see only the routes under the reaper, type `enabled` under **Reaper**. Click a row to
@@ -38,6 +39,8 @@ Above the table:
   the job last ran;
 - **warnings** when something prevents the reaper from working: no API token, a failed run, the
   dry-run mode, the kill switch;
+- **what sleeping saved**: today, this month, this year, in all, and what the apps asleep right now
+  would cost per hour (see [Savings](./savings));
 - the **Kill switch** button, for super admins: see [Operations](./operations#the-kill-switch).
 
 ## The page of a route
@@ -72,6 +75,11 @@ And the actions, depending on the state:
 
 A manual **Put to sleep now** is logged in the history with the email of the user. The app wakes up
 with the next request, as usual, and gets its normal grace period after that.
+
+### Savings
+
+What the app costs when it runs, what its current sleep saved so far, what its sleeps saved today,
+this month, this year and in all, and a bar per day for the last 30 days. See [Savings](./savings).
 
 ### Settings
 

@@ -1,0 +1,113 @@
+---
+title: Savings
+description: What putting apps to sleep saved, per app and for the whole install, from the size of each app and the Clever Cloud prices of its zone.
+---
+
+# Savings
+
+The reaper counts what its sleeps saved, in money: per app, per day, and for the whole install. The
+console shows it above the routes table and on the page of each route; the admin API serves it for
+your own reports.
+
+![The savings above the routes table](/img/screenshots/reaper-routes.png)
+
+## What is counted
+
+**A sleep the reaper caused**, from the moment the app is down to the moment it is needed again:
+
+- it starts when the app goes from <span className="status status--going">Going to sleep</span> to
+  <span className="status status--asleep">Asleep</span>, after the reaper stopped it;
+- it ends when the app leaves <span className="status status--asleep">Asleep</span>: a request wakes
+  it up, a must-be-up range starts it, someone starts it, or the reaper stops managing it.
+
+An app stopped by someone else, or found stopped when the reaper started managing it, is not counted:
+the reaper did not save that.
+
+**At the cost of the app when it runs, at its minimum**: its minimum number of instances times the
+price of its minimum flavor, in its zone. With autoscaling, the app could have cost more; the reaper
+counts what it saved for sure. The boot of a wake up, and the add-ons of the app, are not counted:
+they are billed either way.
+
+```
+saved = hours asleep × min instances × hourly price of the min flavor
+```
+
+The prices are the public prices of Clever Cloud, before taxes, from its price system: a negotiated
+price, a discount or credits are not taken into account.
+
+## Where the numbers come from
+
+Nothing is computed from the history, and nothing is recomputed at every request:
+
+- **The cost of each app** is read from Clever Cloud (its size: flavors, instances, zone) and
+  **stored**, then read again every six hours (`savings.refresh-interval`), a few apps per run of the
+  job. The prices of each zone are read the same way, and shared by its apps.
+- **Each sleep is counted once**, when it ends, by the leader that wakes the app up: it is split
+  between the days it covers, in the timezone of the reaper, and **added to stored totals**: one per
+  app, and counters per day for the whole install.
+- **Only the sleeps still running** are computed when the numbers are read: their start, times the
+  cost of the app.
+
+A change of size is taken into account at the next refresh of the cost; a sleep is counted at the
+cost known when it ends.
+
+## In the console
+
+Above the routes table:
+
+| Tile | |
+|---|---|
+| **Saved today**, **This month**, **This year**, **In all** | what the sleeps saved, the ones still running included |
+| **Saving right now** | what the apps asleep right now would cost per hour if they ran, and how many they are |
+
+The **Saved** column of the table shows what each app saved in all.
+
+On the page of a route, the **Savings** section:
+
+![The savings of an app](/img/screenshots/reaper-route-savings.png)
+
+| Line | |
+|---|---|
+| **Cost when it runs** | its minimum (and maximum, with autoscaling) cost per hour, its size and its zone |
+| **Asleep now** | what the current sleep saved so far, and since when |
+| **Saved** | today, this month, this year, in all |
+| **Time asleep** | the hours asleep, over how many sleeps |
+| **Last 30 days** | a bar per day |
+
+## From the admin API
+
+```bash
+# the whole install
+curl -u $AUTH $REAPER/savings
+# one app
+curl -u $AUTH $REAPER/apps/app_0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab/savings
+```
+
+See the [admin API reference](./reference/admin-api#savings) for the fields. Every transition that
+ends a sleep also carries what it saved in its [event](./reference/events), for your analytics.
+
+## Settings
+
+```json5
+otoroshi.admin-extensions.configurations.cloud-apim_extensions_clevercloudreaper {
+  savings {
+    enabled = true
+    // the currency of the prices, and of the savings
+    currency = "EUR"
+    // how often the size of each app and the prices are read again (millis)
+    refresh-interval = 21600000
+    // how many days of savings are kept per app
+    history-days = 400
+  }
+}
+```
+
+- **The currency** is the one the price system of Clever Cloud is asked for (`EUR`, `USD`...). Changing
+  it does not convert what was already saved: the totals of each app start again in the new currency.
+- **The days kept per app** only limit the detail of each app: its total, and the counters of the whole
+  install, are kept for good.
+- **Turned off**, the reaper reads no size and no price, and counts nothing. The totals already stored
+  stay.
+
+The API token needs nothing more: the size of an app is read with the same calls as its state, and
+the price system of Clever Cloud is public.

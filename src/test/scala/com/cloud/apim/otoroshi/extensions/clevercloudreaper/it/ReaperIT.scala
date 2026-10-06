@@ -138,6 +138,23 @@ class ReaperIT extends munit.FunSuite {
     assert(items.exists(t => (t \ "cause").asOpt[String].exists(_.startsWith("no traffic for"))))
   }
 
+  test("a sleep the reaper caused is counted as saved when the app wakes up, for the app and the install") {
+    eventually("the app to sleep again")(status().contains("Down"))
+    Thread.sleep(2000L)
+    assertEquals(gateway.call(route, "/api/things", Seq("Accept" -> "application/json")).status, 200)
+    val savings = gateway.await(gateway.admin(s"/api/extensions/cloud-apim/extensions/clevercloud-reaper/apps/$appId/savings").get())
+    assertEquals(savings.status, 200, savings.body)
+    // two XS at 3600 an hour each: 2 a second, for a sleep of more than two seconds
+    assertEquals((savings.json \ "cost" \ "hourly_min").as[BigDecimal], BigDecimal(7200))
+    assert((savings.json \ "total").as[BigDecimal] >= BigDecimal(4), savings.body)
+    assert((savings.json \ "sleeps").as[Long] >= 1L, savings.body)
+    assert((savings.json \ "today").as[BigDecimal] > BigDecimal(0), savings.body)
+    val global  = gateway.await(gateway.admin("/api/extensions/cloud-apim/extensions/clevercloud-reaper/savings").get())
+    assertEquals(global.status, 200, global.body)
+    assert((global.json \ "total").as[BigDecimal] >= (savings.json \ "total").as[BigDecimal], global.body)
+    assertEquals((global.json \ "currency").as[String], "EUR")
+  }
+
   test("in unavailable mode an api call gets a 503 at once, a browser the page, whose poll goes through once the app answers") {
     val unavailable = gateway.createRoute(
       "unavailable",

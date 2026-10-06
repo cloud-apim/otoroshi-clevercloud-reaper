@@ -122,6 +122,12 @@ default):
 | `...:wakes:<app_id>` | string, expires after 30 min | a wake up asked and not done yet |
 | `...:locks:<app_id>` | string, expires after 60 s | the lock of the engine on the app |
 | `...:settings` | string (JSON) | the kill switch, who set it and when |
+| `...:disabled:<route_id>` | string, expires after 60 s | a route the reaper was just disabled on, ignored by the job until every node has synced |
+| `...:costs:<app_id>` | string (JSON) | what the app costs when it runs: its size, its zone, its price per hour |
+| `...:prices:<zone>-<currency>` | string (JSON) | the Clever Cloud prices of a zone |
+| `...:savings-apps:<app_id>` | string (JSON) | what the app saved: total, time asleep, per day |
+| `...:savings-days:<yyyy-mm-dd>` | counter | what the install saved that day, in millionths of the currency |
+| `...:savings-total` | counter | what the install saved in all, in millionths of the currency |
 
 The settings of the routes are not here: they are in the routes themselves, in the config of their
 plugin, and follow the routes in exports, imports and backups.
@@ -137,6 +143,8 @@ The reaper uses a handful of endpoints of the Clever Cloud API v2, through the A
 | `DELETE /v2/organisations/{owner}/applications/{app}/instances` | to put an app to sleep |
 | `POST /v2/organisations/{owner}/applications/{app}/instances` | to wake it up |
 | `GET /v2/organisations/{owner}/applications` | for the app lists of the console, cached a minute |
+| `GET /v2/organisations/{owner}/applications/{app}` | the size and zone of an app, for its cost, every six hours |
+| `GET /v4/billing/price-system?zone_id={zone}&currency={currency}` | the prices of a zone, every six hours |
 
 Apps owned by a user rather than an organisation are under `/v2/self` instead of
 `/v2/organisations/{owner}`.

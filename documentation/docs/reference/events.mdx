@@ -43,6 +43,7 @@ An analytics event, sent at **every transition** of every app.
 | `@serviceId`, `@service` | the app id, and its name on Clever Cloud |
 | `transition` | the state it left, the state it entered, why, and when |
 | `app` | the full state of the app after the transition, as returned by the [admin API](./admin-api#list-the-apps) |
+| `sleep` | when the transition ends a sleep the reaper caused: `from`, `to`, `hours`, `hourly` cost and `saved`. `null` otherwise |
 
 Exporter filter:
 

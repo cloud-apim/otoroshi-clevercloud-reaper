@@ -17,7 +17,10 @@ final case class CleverApp(
     ownerId: String,
     ownerName: Option[String],
     state: String,
-    vhosts: Seq[String] = Seq.empty
+    vhosts: Seq[String] = Seq.empty,
+    // only in the answers of the application endpoints, not in the summary
+    zone: Option[String] = None,
+    sizing: Option[CleverSizing] = None
 ) {
   def json: JsValue = Json.obj(
     "id"         -> id,
@@ -25,7 +28,8 @@ final case class CleverApp(
     "owner_id"   -> ownerId,
     "owner_name" -> ownerName,
     "state"      -> state,
-    "vhosts"     -> vhosts
+    "vhosts"     -> vhosts,
+    "zone"       -> zone
   )
 }
 
@@ -102,7 +106,9 @@ class CleverCloudApi(env: Env, baseUrl: String, token: Option[String], timeout: 
     ownerId = json.select("ownerId").asOpt[String].getOrElse(ownerId),
     ownerName = ownerName,
     state = state,
-    vhosts = json.select("vhosts").asOpt[Seq[JsValue]].getOrElse(Seq.empty).flatMap(_.select("fqdn").asOpt[String])
+    vhosts = json.select("vhosts").asOpt[Seq[JsValue]].getOrElse(Seq.empty).flatMap(_.select("fqdn").asOpt[String]),
+    zone = json.select("zone").asOpt[String],
+    sizing = CleverSizing.read(json)
   )
 
   /** Every app the token can see, with its owner and state, in a single call. No vhosts in there. */
@@ -152,6 +158,12 @@ class CleverCloudApi(env: Env, baseUrl: String, token: Option[String], timeout: 
         }
       }
     })
+
+  /** The prices of a zone, per runtime flavor. A public endpoint of the v4 api, served by the bridge too. */
+  def priceSystem(zone: String, currency: String)(using ec: ExecutionContext): Future[Either[CleverError, PriceSystem]] =
+    call("GET", "/v4/billing/price-system", Seq("zone_id" -> zone, "currency" -> currency)).map(
+      _.map(json => PriceSystem.parse(zone, currency, json, System.currentTimeMillis()))
+    )
 
   def stop(ownerId: String, appId: String)(using ec: ExecutionContext): Future[Either[CleverError, Unit]] =
     call("DELETE", s"${ownerPath(ownerId)}/applications/$appId/instances").map(_.map(_ => ()))

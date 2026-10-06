@@ -43,6 +43,17 @@ otoroshi.admin-extensions.configurations.cloud-apim_extensions_clevercloudreaper
 
   // how many transitions are kept per app
   history-size = 100
+
+  savings {
+    // what sleeping saved, from the size of each app and the clever cloud prices of its zone
+    enabled = true
+    // the currency of the prices, and of the savings
+    currency = "EUR"
+    // how often the size of each app and the prices are read again (milliseconds)
+    refresh-interval = 21600000
+    // how many days of savings are kept per app
+    history-days = 400
+  }
 }
 ```
 
@@ -59,6 +70,10 @@ otoroshi.admin-extensions.configurations.cloud-apim_extensions_clevercloudreaper
 | `job.fast-interval` | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_JOB_FAST_INTERVAL` | `5000` |
 | `access-flush-interval` | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_ACCESS_FLUSH_INTERVAL` | `10000` |
 | `history-size` | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_HISTORY_SIZE` | `100` |
+| `savings.enabled` | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_SAVINGS_ENABLED` | `true` |
+| `savings.currency` | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_SAVINGS_CURRENCY` | `EUR` |
+| `savings.refresh-interval` | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_SAVINGS_REFRESH_INTERVAL` | `21600000` |
+| `savings.history-days` | `CLOUD_APIM_EXTENSIONS_CLEVERCLOUD_REAPER_SAVINGS_HISTORY_DAYS` | `400` |
 
 ## Notes
 

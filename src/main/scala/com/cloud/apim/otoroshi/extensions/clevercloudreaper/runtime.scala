@@ -27,7 +27,15 @@ final case class ReaperConfiguration(
     interval: FiniteDuration,
     fastInterval: FiniteDuration,
     accessFlushInterval: FiniteDuration,
-    historySize: Int
+    historySize: Int,
+    savings: SavingsSettings = SavingsSettings()
+)
+
+final case class SavingsSettings(
+    enabled: Boolean = true,
+    currency: String = "EUR",
+    refreshInterval: FiniteDuration = 6.hours,
+    historyDays: Int = 400
 )
 
 object ReaperConfiguration {
@@ -44,7 +52,13 @@ object ReaperConfiguration {
     interval = configuration.getOptional[Long]("job.interval").getOrElse(30000L).millis,
     fastInterval = configuration.getOptional[Long]("job.fast-interval").getOrElse(5000L).millis,
     accessFlushInterval = configuration.getOptional[Long]("access-flush-interval").getOrElse(10000L).millis,
-    historySize = configuration.getOptional[Int]("history-size").getOrElse(100)
+    historySize = configuration.getOptional[Int]("history-size").getOrElse(100),
+    savings = SavingsSettings(
+      enabled = configuration.getOptional[Boolean]("savings.enabled").getOrElse(true),
+      currency = configuration.getOptional[String]("savings.currency").map(_.trim.toUpperCase).filter(_.nonEmpty).getOrElse("EUR"),
+      refreshInterval = configuration.getOptional[Long]("savings.refresh-interval").getOrElse(21600000L).millis,
+      historyDays = configuration.getOptional[Int]("savings.history-days").getOrElse(400)
+    )
   )
 }
 
@@ -56,6 +70,8 @@ class ReaperMemory {
 
   private val _states = new TrieMap[String, AppState]()
   private val _access = new TrieMap[String, Long]()
+  private val _costs   = new TrieMap[String, AppCost]()
+  private val _savings = new TrieMap[String, AppSavings]()
   @volatile private var _settings = ReaperSettings()
 
   def state(appId: String): Option[AppState] = _states.get(appId)
@@ -75,6 +91,22 @@ class ReaperMemory {
 
   def mergeAccess(accesses: Map[String, Long]): Unit = accesses.foreach { case (appId, at) =>
     _access.updateWith(appId)(current => Some(Math.max(current.getOrElse(0L), at)))
+  }
+
+  def cost(appId: String): Option[AppCost] = _costs.get(appId)
+  def allCosts(): Map[String, AppCost] = _costs.toMap
+  def putCost(cost: AppCost): Unit = _costs.put(cost.appId, cost)
+  def replaceCosts(costs: Map[String, AppCost]): Unit = {
+    _costs.addAll(costs)
+    _costs.keySet.diff(costs.keySet).foreach(_costs.remove)
+  }
+
+  def savings(appId: String): Option[AppSavings] = _savings.get(appId)
+  def allSavings(): Map[String, AppSavings] = _savings.toMap
+  def putSavings(savings: AppSavings): Unit = _savings.put(savings.appId, savings)
+  def replaceSavings(savings: Map[String, AppSavings]): Unit = {
+    _savings.addAll(savings)
+    _savings.keySet.diff(savings.keySet).foreach(_savings.remove)
   }
 
   def settings: ReaperSettings = _settings

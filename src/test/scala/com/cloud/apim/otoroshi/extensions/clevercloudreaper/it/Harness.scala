@@ -52,7 +52,14 @@ class FakeClever(val appId: String, val ownerId: String = "orga_test", startDela
     "name"    -> "my-test-app",
     "ownerId" -> ownerId,
     "state"   -> state.get(),
-    "vhosts"  -> Json.arr(Json.obj("fqdn" -> "my-test-app.example.com"))
+    "vhosts"  -> Json.arr(Json.obj("fqdn" -> "my-test-app.example.com")),
+    "zone"    -> "par",
+    "instance" -> Json.obj(
+      "minInstances" -> 2,
+      "maxInstances" -> 2,
+      "minFlavor"    -> Json.obj("name" -> "XS", "price_id" -> "apps.XS"),
+      "maxFlavor"    -> Json.obj("name" -> "XS", "price_id" -> "apps.XS")
+    )
   )
 
   private def json(value: JsValue, status: StatusCode = StatusCodes.OK): HttpResponse =
@@ -87,6 +94,9 @@ class FakeClever(val appId: String, val ownerId: String = "orga_test", startDela
                   )
                 )
               case (HttpMethods.GET, p) if p == s"/v2/organisations/$ownerId/applications" => json(Json.arr(appJson))
+              // one XS costs 1 per second here, so a sleep of a few seconds saves something visible
+              case (HttpMethods.GET, "/v4/billing/price-system")                         =>
+                json(Json.obj("zone_id" -> "par", "currency" -> "EUR", "runtime" -> Json.arr(Json.obj("slug_id" -> "apps.XS", "price" -> 1, "time_unit" -> "PT1S"))))
               case (HttpMethods.GET, p) if p == app                                       => json(appJson)
               case (HttpMethods.GET, p) if p == s"$app/deployments"                       => json(JsArray(deployments.get().take(1)))
               case (HttpMethods.DELETE, p) if p == s"$app/instances"                      =>
