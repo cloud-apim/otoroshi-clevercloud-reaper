@@ -165,9 +165,10 @@ the ones you are most likely to touch:
 
 ## In a cluster
 
-Install the same jar, with the same configuration, on **every node**: leaders and workers. Only the
-leaders need the API token, since only they call Clever Cloud, but giving it to every node does no
-harm and keeps one configuration. The workers report their traffic to the leaders over the
+Install the same jar on **every node**: leaders and workers. Only the leaders need the API token:
+workers never call Clever Cloud, they hand their accesses and wake ups to the leaders. A worker
+without the token is fine, and does not complain about it; giving it to every node does no harm
+either, if you prefer one configuration for all. The workers report their traffic to the leaders over the
 regular cluster channel: there is nothing more to open. See [Architecture](./architecture).
 
 ## Build from source

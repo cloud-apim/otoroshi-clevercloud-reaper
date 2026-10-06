@@ -61,7 +61,8 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
 
   override def start(): Unit = {
     logger.info("the 'Cloud APIM - Clever Cloud Reaper' extension is enabled !")
-    if (!api.configured) logger.warn("no clever cloud api token configured (CLEVER_CLOUD_API_TOKEN): the reaper will not do anything")
+    // workers never call clever cloud: only the leaders need the token
+    if (!api.configured && !isWorker) logger.warn("no clever cloud api token configured (CLEVER_CLOUD_API_TOKEN): the reaper will not do anything")
     if (conf.dryRun) logger.warn("the clevercloud reaper runs in dry-run mode: no app will be put to sleep")
     flushTask.set(env.otoroshiScheduler.scheduleWithFixedDelay(conf.accessFlushInterval, conf.accessFlushInterval)(() => flushAccess()))
   }
