@@ -51,9 +51,20 @@ All durations are in **seconds**.
 | **Owner** (`owner_id`) | discovered | the organisation (`orga_...`) or user (`user_...`) that owns it |
 
 When `app_id` is empty, the plugin uses the **default domain** of the targets: a target
-`app-<uuid>.cleverapps.io` is the app `app_<uuid>`. A route whose targets use a custom domain needs
-the app id set explicitly. The console goes further when you enable the reaper from it: it matches
-the targets against the domains of all your apps, and writes the app it found into the settings.
+`app-<uuid>.cleverapps.io` is the app `app_<uuid>`. A route whose targets use another domain needs
+the app id set explicitly.
+
+In the console, the **Detect** button next to the list of apps does it for you: it looks for the app
+whose domain is the host of a target of the route, and selects it with its owner. In order:
+
+1. a target on the default domain of an app, `app-<uuid>.cleverapps.io`;
+2. a target on a domain of an app: a custom domain like `api.example.com`, or a `cleverapps.io`
+   subdomain chosen for the app like `my-shop.cleverapps.io`;
+3. as a last resort, a frontend domain of the route that is also a domain of an app.
+
+Ports, paths and case do not matter. The list of apps is read again when it has no match, so an app
+created a minute ago is found too. The console also guesses the app the same way when you enable the
+reaper without choosing one.
 
 The owner is only a hint: the reaper finds the owner of each app from the API token on its own.
 

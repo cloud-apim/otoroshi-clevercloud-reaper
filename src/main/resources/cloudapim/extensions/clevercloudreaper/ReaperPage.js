@@ -301,11 +301,44 @@ function ReaperField(props) {
 
 // the app list needs the api token: without it, the id is typed
 class CleverAppField extends Component {
-  state = { apps: null };
+  state = { apps: null, busy: false, detected: null };
 
   componentDidMount() {
-    reaperCall('GET', '/clever/apps').then(({ status, json }) => this.setState({ apps: status >= 400 || !Array.isArray(json) ? [] : json }));
+    this.loadApps(false);
   }
+
+  loadApps = (force) =>
+    reaperCall('GET', '/clever/apps' + (force ? '?force=true' : '')).then(({ status, json }) =>
+      this.setState({ apps: status >= 400 || !Array.isArray(json) ? [] : json })
+    );
+
+  select = (appId, ownerId) => {
+    // the owner comes with the app
+    const app = (this.state.apps || []).find((a) => a.id === appId);
+    this.props.rawOnChange(
+      Object.assign({}, this.props.rawValue, { app_id: appId, owner_id: app ? app.owner_id : ownerId || this.props.rawValue.owner_id })
+    );
+  };
+
+  // the app whose domain is a target of the route, found by the server
+  detect = () => {
+    const routeId = this.props.routeId && this.props.routeId();
+    if (!routeId) return;
+    this.setState({ busy: true, detected: null });
+    reaperCall('GET', '/routes/' + routeId + '/detect').then(({ status, json }) => {
+      this.setState({ busy: false });
+      if (status >= 400) {
+        window.newAlert(json.error || 'no Clever Cloud app found for this route');
+        return;
+      }
+      const known = (this.state.apps || []).some((a) => a.id === json.app_id);
+      // a new app is not in the list yet
+      (known ? Promise.resolve() : this.loadApps(true)).then(() => {
+        this.select(json.app_id, json.owner_id);
+        this.setState({ detected: json });
+      });
+    });
+  };
 
   render() {
     const h = React.createElement;
@@ -321,17 +354,41 @@ class CleverAppField extends Component {
         onChange: (v) => this.props.onChange(v),
       });
     }
-    return h(SelectInput, {
-      label: this.props.label,
-      help: this.props.help,
-      value: value,
-      possibleValues: apps.map((a) => ({ label: a.label, value: a.id })),
-      onChange: (v) => {
-        // the owner comes with the app
-        const app = apps.find((a) => a.id === v);
-        this.props.rawOnChange(Object.assign({}, this.props.rawValue, { app_id: v, owner_id: app ? app.owner_id : this.props.rawValue.owner_id }));
-      },
-    });
+    const detected = this.state.detected;
+    return h('div', { className: 'row mb-3' },
+      h('label', { className: 'col-xs-12 col-sm-2 col-form-label', title: this.props.help }, this.props.label),
+      h('div', { className: 'col-sm-10' },
+        h('div', { style: { display: 'flex', gap: 8, alignItems: 'flex-start' } },
+          // the select alone, without its own label: the row is this one
+          h('div', { style: { flex: 1, minWidth: 0, marginBottom: '-1rem' } },
+            h(SelectInput, {
+              flex: true,
+              value: value,
+              possibleValues: apps.map((a) => ({ label: a.label, value: a.id })),
+              onChange: (v) => {
+                this.setState({ detected: null });
+                this.select(v);
+              },
+            })
+          ),
+          this.props.routeId
+            ? h('button', {
+                type: 'button',
+                className: 'btn btn-primary',
+                disabled: this.state.busy,
+                title: 'find the app whose domain is the host of a target of this route',
+                onClick: this.detect,
+              }, h('i', { className: this.state.busy ? 'fas fa-spinner fa-spin' : 'fas fa-wand-magic-sparkles' }), ' Detect')
+            : null
+        ),
+        detected
+          ? h('div', { style: { fontSize: '0.8125rem', opacity: 0.8, marginTop: 6 } },
+              h('i', { className: 'fas fa-check', style: { color: 'var(--color-green, #198754)', marginRight: 6 } }),
+              'found from ', h('code', null, detected.host), ', ' + detected.how,
+              detected.candidates && detected.candidates.length > 1 ? ' (' + (detected.candidates.length - 1) + ' other candidate' + (detected.candidates.length > 2 ? 's' : '') + ')' : '')
+          : null
+      )
+    );
   }
 }
 
@@ -543,7 +600,11 @@ class CleverCloudReaperRoutePage extends Component {
   settingsSchema = {
     app_id: {
       type: CleverAppField,
-      props: { label: 'Clever Cloud app', help: 'The app behind this route. The routes of one app share its state: the most demanding settings win' },
+      props: {
+        label: 'Clever Cloud app',
+        help: 'The app behind this route. The routes of one app share its state: the most demanding settings win',
+        routeId: () => this.routeId(),
+      },
     },
     owner_id: {
       type: 'string',

@@ -194,7 +194,7 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
   }
 
   private def cachedVhosts: Map[String, String] =
-    cleverAppsCache.get()._2.flatMap(a => a.vhosts.map(_.toLowerCase -> a.id)).toMap
+    cleverAppsCache.get()._2.flatMap(a => a.vhosts.map(v => CleverAppIds.host(v) -> a.id)).toMap
 
   def detectApp(route: NgRoute): Option[String] =
     CleverAppIds.fromRoute(route).orElse(CleverAppIds.fromVhosts(route, cachedVhosts))
@@ -219,6 +219,7 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
     AdminExtensionBackofficeAuthRoute("GET", s"$boPath/overview", wantsBody = false, (_, _, user, _) => withUser(user)(_ => handleOverview())),
     AdminExtensionBackofficeAuthRoute("GET", s"$boPath/routes", wantsBody = false, (_, req, user, _) => withUser(user)(u => handleRoutes(req, u))),
     AdminExtensionBackofficeAuthRoute("GET", s"$boPath/routes/:routeId", wantsBody = false, (ctx, _, user, _) => withUser(user)(u => handleRoute(ctx.named("routeId"), u))),
+    AdminExtensionBackofficeAuthRoute("GET", s"$boPath/routes/:routeId/detect", wantsBody = false, (ctx, _, user, _) => withUser(user)(u => handleDetect(ctx.named("routeId"), u))),
     AdminExtensionBackofficeAuthRoute("POST", s"$boPath/routes/:routeId/_enable", wantsBody = true, (ctx, _, user, body) => withUser(user)(u => handleEnable(ctx.named("routeId"), body, u))),
     AdminExtensionBackofficeAuthRoute("POST", s"$boPath/routes/:routeId/_disable", wantsBody = false, (ctx, _, user, _) => withUser(user)(u => handleDisable(ctx.named("routeId"), u))),
     AdminExtensionBackofficeAuthRoute("PUT", s"$boPath/routes/:routeId/config", wantsBody = true, (ctx, _, user, body) => withUser(user)(u => handleConfig(ctx.named("routeId"), body, u))),
@@ -445,6 +446,44 @@ class CleverCloudReaperExtension(val env: Env) extends AdminExtension {
           engine.managedApps().get(id).toSeq.flatMap(_.routes.map(_._1)).filter(_.id != route.id).distinctBy(_.id)
         }
         Results.Ok(row ++ Json.obj("siblings" -> siblings.map(r => Json.obj("id" -> r.id, "name" -> r.name)))).vfuture
+    }
+
+  /**
+   * The Clever Cloud app a route leads to, from the hosts of its targets and the domains of the apps
+   * the token can see. The apps are listed again when the cached list has no match: the app may be new.
+   */
+  private def handleDetect(routeId: Option[String], user: BackOfficeUser): Future[Result] =
+    routeId.flatMap(id => env.proxyState.rawRoute(id)) match {
+      case None                                 => notFound(s"route ${routeId.getOrElse("")} not found")
+      case Some(route) if !canRead(user, route) => forbidden
+      case Some(route)                          =>
+        val hosts = route.backend.targets.map(t => CleverAppIds.host(t.hostname)).distinct
+        def found(candidates: Seq[AppDetection]): Result =
+          Results.Ok(candidates.head.json.asObject ++ Json.obj("candidates" -> JsArray(candidates.map(_.json))))
+        def none: Result                                 =
+          Results.NotFound(
+            Json.obj(
+              "error" -> s"no Clever Cloud app visible with the api token has the domain of a target of this route (${hosts.mkString(", ")}): choose the app in the list",
+              "hosts" -> hosts
+            )
+          )
+        if (!api.configured) {
+          // the default domain needs no api call
+          val candidates = CleverAppIds.candidates(route, Seq.empty)
+          (if (candidates.isEmpty) none else found(candidates)).vfuture
+        } else
+          cleverApps().flatMap {
+            case Right(apps) if CleverAppIds.candidates(route, apps).nonEmpty => found(CleverAppIds.candidates(route, apps)).vfuture
+            case _                                                            =>
+              cleverApps(force = true).map {
+                case Left(err)  =>
+                  val candidates = CleverAppIds.candidates(route, Seq.empty)
+                  if (candidates.nonEmpty) found(candidates) else Results.BadGateway(Json.obj("error" -> s"could not list the Clever Cloud apps: $err"))
+                case Right(apps) =>
+                  val candidates = CleverAppIds.candidates(route, apps)
+                  if (candidates.isEmpty) none else found(candidates)
+              }
+          }
     }
 
   /**

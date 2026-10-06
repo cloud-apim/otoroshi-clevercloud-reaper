@@ -208,9 +208,43 @@ object CleverAppIds {
     route.backend.targets.iterator.flatMap(t => fromHostname(t.hostname)).nextOption()
 
   def fromVhosts(route: NgRoute, vhosts: Map[String, String]): Option[String] =
-    route.backend.targets.iterator.flatMap(t => vhosts.get(t.hostname.trim.toLowerCase)).nextOption()
+    route.backend.targets.iterator.flatMap(t => vhosts.get(host(t.hostname))).nextOption()
 
   def resolve(route: NgRoute, config: CleverCloudReaperConfig): Option[String] = config.appId.orElse(fromRoute(route))
+
+  /** The host of a target or of a domain of an app: no port, no path, no trailing dot, lower case. */
+  def host(value: String): String = value.trim.toLowerCase.takeWhile(c => c != '/' && c != ':').stripSuffix(".")
+
+  /**
+   * The apps a route may lead to, the most likely first: a target on the default domain of an app, a
+   * target on one of the domains of an app, then, as a last resort, a frontend domain of the route
+   * that is also a domain of an app.
+   */
+  def candidates(targets: Seq[String], frontends: Seq[String], apps: Seq[CleverApp]): Seq[AppDetection] = {
+    def byDomain(hosts: Seq[String], how: String): Seq[AppDetection] = for {
+      h   <- hosts
+      app <- apps.filter(_.vhosts.exists(v => host(v) == h))
+    } yield AppDetection(app.id, Some(app.ownerId), Some(app.name), h, how)
+    val targetHosts = targets.map(host).filter(_.nonEmpty).distinct
+    val default     = for {
+      h     <- targetHosts
+      appId <- fromHostname(h).toSeq
+    } yield {
+      val app = apps.find(_.id == appId)
+      AppDetection(appId, app.map(_.ownerId), app.map(_.name), h, "the default domain of the app")
+    }
+    (default ++ byDomain(targetHosts, "a domain of the app") ++
+      byDomain(frontends.map(host).filter(_.nonEmpty).distinct, "a frontend domain of the route, also a domain of the app"))
+      .distinctBy(_.appId)
+  }
+
+  def candidates(route: NgRoute, apps: Seq[CleverApp]): Seq[AppDetection] =
+    candidates(route.backend.targets.map(_.hostname), route.frontend.domains.map(_.domainLowerCase), apps)
+}
+
+/** A Clever Cloud app a route leads to, and why it is thought so. */
+final case class AppDetection(appId: String, ownerId: Option[String], name: Option[String], host: String, how: String) {
+  def json: JsValue = Json.obj("app_id" -> appId, "owner_id" -> ownerId, "name" -> name, "host" -> host, "how" -> how)
 }
 
 /** What the reaper knows of one clever cloud app. Written by the leader only, read by every node. */

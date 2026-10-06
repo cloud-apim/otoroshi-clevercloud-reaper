@@ -142,4 +142,31 @@ class ModelsSuite extends munit.FunSuite {
     tracker.touch("a", 12L)
     assertEquals(tracker.drain(), Map("a" -> 12L))
   }
+
+  test("the app of a route is found from the hosts of its targets, then from its frontends") {
+    val uuid  = "0f4c2b0e-1a2b-4c3d-8e9f-0123456789ab"
+    val apps  = Seq(
+      CleverApp(s"app_$uuid", "default", "orga_1", Some("Acme"), "SHOULD_BE_UP", Seq(s"app-$uuid.cleverapps.io")),
+      CleverApp("app_2", "custom", "orga_1", Some("Acme"), "SHOULD_BE_UP", Seq("api.example.com/v1", "Shop.Example.com.")),
+      CleverApp("app_3", "public", "orga_2", Some("Labs"), "SHOULD_BE_UP", Seq("www.example.com")),
+      CleverApp("app_4", "named", "orga_2", Some("Labs"), "SHOULD_BE_UP", Seq("my-shop.cleverapps.io"))
+    )
+    // a cleverapps.io subdomain chosen for the app is one of its domains
+    assertEquals(CleverAppIds.candidates(Seq("my-shop.cleverapps.io"), Seq.empty, apps).map(a => (a.appId, a.how)), Seq(("app_4", "a domain of the app")))
+    // the default domain wins, then the domains of the apps, a port and a case do not matter
+    val both  = CleverAppIds.candidates(Seq("shop.example.com:8443", s"APP-$uuid.cleverapps.io"), Seq.empty, apps)
+    assertEquals(both.map(_.appId), Seq(s"app_$uuid", "app_2"))
+    assertEquals(both.head.how, "the default domain of the app")
+    assertEquals(both.head.ownerId, Some("orga_1"))
+    // a domain with a path still matches its host
+    assertEquals(CleverAppIds.candidates(Seq("api.example.com"), Seq.empty, apps).map(_.appId), Seq("app_2"))
+    // a frontend of the route as a last resort
+    val front = CleverAppIds.candidates(Seq("10.0.0.12"), Seq("www.example.com"), apps)
+    assertEquals(front.map(_.appId), Seq("app_3"))
+    assert(front.head.how.contains("frontend"))
+    // the default domain of an app the token cannot see still names it
+    val other = CleverAppIds.candidates(Seq("app-11111111-2222-3333-4444-555555555555.cleverapps.io"), Seq.empty, apps)
+    assertEquals(other.map(a => (a.appId, a.ownerId)), Seq(("app_11111111-2222-3333-4444-555555555555", None)))
+    assertEquals(CleverAppIds.candidates(Seq("nothing.example.org"), Seq("nope.example.org"), apps), Seq.empty)
+  }
 }
