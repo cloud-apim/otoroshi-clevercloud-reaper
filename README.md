@@ -172,8 +172,8 @@ have every key.
 
 ```bash
 sbt test          # unit tests, and end-to-end tests against an in-process otoroshi and a fake clever cloud
-sbt assembly      # target/scala-3.8.4/otoroshi-clevercloud-reaper-assembly_3-dev.jar
-./rebuild.sh      # assembly, linked into a local otoroshi checkout (../otoroshi/otoroshi/lib), reloaded
+sbt package       # target/scala-3.8.4/otoroshi-clevercloud-reaper_3-dev.jar
+./rebuild.sh      # package, linked into a local otoroshi checkout (../otoroshi/otoroshi/lib), reloaded
 ```
 
 The documentation is a [Docusaurus](https://docusaurus.io/) site in [`documentation/`](documentation),

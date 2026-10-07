@@ -62,9 +62,9 @@ jobs:
 
       - name: build
         run: |
-          sbt -batch assembly
+          sbt -batch package
           mkdir -p dist
-          cp "target/scala-$SCALA_VERSION/$NAME-assembly_3-dev.jar" "dist/${NAME}_3-${{ inputs.version }}.jar"
+          cp "target/scala-$SCALA_VERSION/${NAME}_3-${{ inputs.version }}.jar" dist/
           cd dist
           shasum -a 256 "${NAME}_3-${{ inputs.version }}.jar" | cut -d ' ' -f 1 > "${NAME}_3-${{ inputs.version }}.jar.sha256"
           ls -la
