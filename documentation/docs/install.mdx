@@ -10,7 +10,7 @@ description: Download the released jar, give the reaper a Clever Cloud API token
 
 | | |
 |---|---|
-| Otoroshi | **18.0.0** or later (built against `18.0.0-preview9`) |
+| Otoroshi | **18.0.0** or later (built against `18.0.0-rc1`) |
 | Java | **17** or later |
 | Clever Cloud | an API token, created with clever-tools **3.12** or later |
 
@@ -78,7 +78,7 @@ cat otoroshi-clevercloud-reaper.jar.sha256
 
 ```bash
 curl -L -o otoroshi.jar \
-  'https://github.com/MAIF/otoroshi/releases/download/v18.0.0-preview9/otoroshi.jar'
+  'https://github.com/MAIF/otoroshi/releases/download/v18.0.0-rc1/otoroshi.jar'
 
 export CLEVER_CLOUD_API_TOKEN='...'
 export OTOROSHI_STORAGE='file'
@@ -105,7 +105,7 @@ docker run \
   -e CLEVER_CLOUD_API_TOKEN="$CLEVER_CLOUD_API_TOKEN" \
   -v "$(pwd)/otoroshi-clevercloud-reaper.jar:/usr/app/plugins/clevercloud-reaper.jar" \
   -v "$(pwd)/otoroshi.db:/usr/app/filedb/state.ndjson" \
-  maif/otoroshi:18.0.0-preview9
+  maif/otoroshi:18.0.0-rc1
 ```
 
 ### On Clever Cloud

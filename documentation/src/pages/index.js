@@ -77,7 +77,7 @@ clever tokens create "otoroshi reaper"
 
 # otoroshi and the extension
 curl -L -o otoroshi.jar \\
-  'https://github.com/MAIF/otoroshi/releases/download/v18.0.0-preview9/otoroshi.jar'
+  'https://github.com/MAIF/otoroshi/releases/download/v18.0.0-rc1/otoroshi.jar'
 curl -L -o reaper.jar \\
   '.../otoroshi-clevercloud-reaper/releases/download/<version>/otoroshi-clevercloud-reaper_3-<version>.jar'
 
